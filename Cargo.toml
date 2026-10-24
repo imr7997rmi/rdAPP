@@ -1,0 +1,22 @@
+[package]
+name = "rdapp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+muda = "0.21.2"
+notify = "8.2.0"
+objc2 = "0.6"
+security-framework = "3.7.0"
+serde = { version = "1.0.229", features = ["derive"] }
+tao = "0.37.2"
+toml = "1.1.8"
+tray-icon = "0.26.1"
+
+[workspace]
+exclude = ["vendor"]
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3

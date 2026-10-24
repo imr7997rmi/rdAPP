@@ -1,0 +1,5 @@
+target/
+dist/
+vendor/
+*.log
+.DS_Store

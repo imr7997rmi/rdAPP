@@ -1,0 +1,100 @@
+# rdAPP
+
+Cliente RDP ultraligero para macOS, en Rust.
+
+- Al abrir la app (o pulsar su icono del Dock) aparece la lista de equipos: elegir y conectar.
+- También icono en la barra de menú con la misma lista.
+- Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
+- Lista en **iCloud Drive** (`iCloud Drive/rdAPP/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
+- Contraseñas en el **Llavero de macOS** (servicio `rdAPP`), nunca en iCloud ni en el archivo.
+- Motor RDP: [`ironrdp-viewer`](https://github.com/Devolutions/IronRDP) (IronRDP, MIT/Apache-2.0) con H.264/AVC444 vía OpenH264, NLA/CredSSP, portapapeles y audio.
+
+## Estructura
+
+```
+src/main.rs      barra de menú (tray-icon + muda + tao), vigilancia del archivo (notify)
+src/config.rs    hosts.toml (ubicación iCloud / fallback ~/.config/rdapp)
+src/keychain.rs  Llavero (security-framework)
+src/launch.rs    lanza ironrdp-viewer con la contraseña por variable de entorno
+src/ui.rs        diálogos nativos vía osascript
+scripts/bundle.sh  compila todo y genera dist/rdAPP.app
+vendor/IronRDP   IronRDP (lo descarga bundle.sh, versión fijada; no está en el repo)
+patches/         parche propio sobre IronRDP (bundle.sh lo aplica):
+                 - redimensionado dinámico con EGFX sin reconectar
+                 - título de ventana y tamaño inicial en puntos (Retina)
+                 - log de peticiones de redimensionado
+```
+
+## Compilar e instalar
+
+Requisitos: macOS 11+, Rust (`rustup`), Xcode Command Line Tools y cmake
+(`python3 -m pip install --user cmake` o `brew install cmake`).
+
+```sh
+git clone <este repo> rdAPP && cd rdAPP
+scripts/bundle.sh --install
+open ~/Applications/rdAPP.app
+```
+
+La primera vez `bundle.sh` descarga IronRDP en `vendor/`, aplica `patches/` y compila (unos minutos).
+
+Desarrollo (sin bundle, tras un primer `bundle.sh`):
+
+```sh
+(cd vendor/IronRDP && cargo build --release -p ironrdp-viewer --features openh264)
+cargo run --release
+```
+
+## hosts.toml
+
+```toml
+[[host]]
+name = "Oficina"
+address = "192.168.1.50"      # o "host:3389"
+user = "usuario"
+# domain = "EMPRESA"
+# width = 1920
+# height = 1080
+# scale = 100                 # % (100–500)
+# args = ["--no-server-pointer"]   # argumentos extra de ironrdp-viewer
+```
+
+Se crea un ejemplo la primera vez. Menú → **Editar lista…** lo abre.
+
+## Contraseñas
+
+- Se piden la primera vez y se guardan en el Llavero si la conexión funciona.
+- Menú → **Olvidar contraseña** para borrarla.
+- La cuenta en el Llavero es `usuario@dirección`.
+
+## Logs
+
+`~/Library/Logs/rdAPP/<equipo>.log` (Menú → **Ver logs**).
+
+## Variables de entorno
+
+- `RDAPP_CONFIG` — ruta alternativa de `hosts.toml`.
+- `RDAPP_VIEWER` — ruta alternativa de `ironrdp-viewer`.
+
+## Pendiente
+
+- Pantalla completa / multimonitor.
+- Ajuste fino del teclado español (Cmd/Ctrl, AltGr).
+- Redirección de carpetas.
+
+## Servidor (Windows)
+
+IronRDP no soporta la «Seguridad RDP» antigua (cifrado RC4, sin TLS). Si el servidor está
+configurado así, la conexión falla con `FailureCode(2)` (SSL_NOT_ALLOWED_BY_SERVER).
+Para activar TLS + NLA, en PowerShell como administrador en el servidor:
+
+```powershell
+$k = 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp'
+Set-ItemProperty $k SecurityLayer 2        # 2 = TLS (1 = Negociar)
+Set-ItemProperty $k UserAuthentication 1   # NLA
+# Si hay directiva de grupo que lo fuerce:
+Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -ErrorAction SilentlyContinue |
+  Select-Object SecurityLayer, UserAuthentication
+```
+
+Las sesiones abiertas no se cortan; el cambio aplica a las conexiones nuevas.
