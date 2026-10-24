@@ -4,65 +4,72 @@
 <meta charset="utf-8">
 <style>
 :root {
-  --bg: #f5f5f7; --panel: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #d2d2d7;
-  --accent: #3b6ff2; --accent-text: #fff; --sel: #e8eefe; --danger: #d93025; --field: #fff;
+  --bg: #ffffff; --side: #f6f6f7; --text: #1d1d1f; --muted: #86868b; --line: #e5e5e7;
+  --field: #f2f2f4; --accent: #2f6fef; --accent-text: #fff; --danger: #d93025;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1e1e20; --panel: #2a2a2d; --text: #f5f5f7; --muted: #98989d; --line: #3a3a3d;
-    --accent: #5b86f5; --sel: #2f3a57; --danger: #ff6b5e; --field: #1e1e20;
+    --bg: #1c1c1e; --side: #202022; --text: #f2f2f2; --muted: #8e8e93; --line: #2c2c2e;
+    --field: #2a2a2c; --accent: #4f86f7; --danger: #ff6b5e;
   }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body {
-  font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg); color: var(--text);
-  display: grid; grid-template-columns: 240px 1fr; grid-template-rows: 1fr auto;
+  display: grid; grid-template-columns: 230px 1fr; grid-template-rows: 1fr auto;
   -webkit-user-select: none; user-select: none;
 }
-aside { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
-#list { flex: 1; overflow: auto; padding: 6px; }
-.item { padding: 7px 10px; border-radius: 6px; cursor: default; }
+aside { background: var(--side); display: flex; flex-direction: column; min-height: 0; }
+#list { flex: 1; overflow: auto; padding: 8px; }
+.item { padding: 7px 10px; border-radius: 7px; margin-bottom: 1px; }
 .item .n { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item .a { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .item.sel { background: var(--accent); color: var(--accent-text); }
-.item.sel .a { color: var(--accent-text); opacity: .8; }
-.tools { display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--line); }
-.tools button { min-width: 28px; padding: 3px 8px; }
-main { padding: 18px 22px; overflow: auto; }
-h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
-h3 { margin: 18px 0 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
-.row label { text-align: right; color: var(--muted); }
-.pair { display: flex; gap: 8px; align-items: center; }
+.item.sel .a { color: var(--accent-text); opacity: .75; }
+.tools { display: flex; gap: 2px; padding: 6px 8px; }
+.tools button { background: none; border: 0; color: var(--muted); padding: 4px 8px; font-size: 14px; }
+.tools button:hover:not(:disabled) { color: var(--text); }
+main { padding: 22px 28px; overflow: auto; }
+h2 { margin: 0 0 18px; font-size: 17px; font-weight: 600; }
+h3 { margin: 22px 0 10px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.row { display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 10px; margin-bottom: 8px; }
+.row label { color: var(--muted); }
+.pair { display: flex; gap: 8px; align-items: center; color: var(--muted); }
 .pair input { width: 90px; }
 input[type=text], input[type=number], select {
   font: inherit; color: var(--text); background: var(--field);
-  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 100%;
+  border: 0; border-radius: 7px; padding: 6px 9px; width: 100%;
+  -webkit-appearance: none; appearance: none;
   -webkit-user-select: text; user-select: text;
 }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding-left: 140px; }
-.checks label { display: flex; gap: 6px; align-items: flex-start; }
-.checks small { display: block; color: var(--muted); }
+input::placeholder { color: var(--muted); }
+input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+select {
+  padding-right: 28px; cursor: default;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2386868b' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding-left: 130px; }
+.checks label { display: flex; gap: 8px; align-items: flex-start; }
+.checks input { accent-color: var(--accent); margin-top: 2px; }
+.checks small { display: block; color: var(--muted); font-size: 11px; }
 button {
-  font: inherit; color: var(--text); background: var(--panel);
-  border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px;
+  font: inherit; color: var(--text); background: var(--field);
+  border: 0; border-radius: 7px; padding: 6px 14px;
 }
 button:active { opacity: .7; }
-button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
-button.danger { color: var(--danger); }
-button:disabled { opacity: .4; }
-.actions { display: flex; gap: 8px; padding-left: 140px; margin-top: 14px; }
-footer {
-  grid-column: 1 / 3; display: flex; align-items: center; gap: 10px;
-  padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel);
-}
+button.primary { background: var(--accent); color: var(--accent-text); }
+button.danger { background: none; color: var(--danger); }
+button:disabled { opacity: .35; }
+.actions { display: flex; gap: 8px; padding-left: 130px; margin-top: 18px; }
+footer { grid-column: 1 / 3; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); }
 footer .status { flex: 1; color: var(--muted); }
 footer .ver { color: var(--muted); font-size: 11px; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }
-.hint { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -120,10 +127,10 @@ const scales = [["", "Automático"], [100, "100 %"], [125, "125 %"], [150, "150 
 
 function renderForm() {
   const f = $("form");
-  if (sel < 0) { f.innerHTML = `<div class="empty">No hay equipos. Pulsa ＋ para añadir uno.</div>`; return; }
+  if (sel < 0) { f.innerHTML = `<div class="empty">No hay conexiones. Pulsa ＋ para añadir una.</div>`; return; }
   const h = hosts[sel];
   f.innerHTML = `
-    <h2>${esc(h.name) || "Nuevo equipo"}</h2>
+    <h2>${esc(h.name) || "Nueva conexión"}</h2>
     <h3>Conexión</h3>
     <div class="row"><label>Nombre</label><input type="text" data-k="name" value="${esc(h.name)}"></div>
     <div class="row"><label>Dirección</label><div>
@@ -142,7 +149,7 @@ function renderForm() {
     <h3>Opciones</h3>
     <div class="checks">
       <label><input type="checkbox" data-k="udp" ${h.udp ? "checked" : ""}><span>UDP<small>Más fluido con mala red</small></span></label>
-      <label><input type="checkbox" data-k="microphone" ${h.microphone ? "checked" : ""}><span>Micrófono<small>Envía tu micrófono al equipo</small></span></label>
+      <label><input type="checkbox" data-k="microphone" ${h.microphone ? "checked" : ""}><span>Micrófono<small>Envía tu micrófono al remoto</small></span></label>
       <label><input type="checkbox" data-k="local_cursor" ${h.local_cursor ? "checked" : ""}><span>Cursor local<small>Algo más rápido</small></span></label>
       <label><input type="checkbox" data-k="no_h264" ${h.no_h264 ? "checked" : ""}><span>Sin H.264<small>Modo gráfico antiguo</small></span></label>
     </div>
@@ -169,7 +176,7 @@ function renderForm() {
       setDirty(true);
       if (k === "name" || k === "address" || k === "user") {
         renderList();
-        if (k === "name") f.querySelector("h2").textContent = v || "Nuevo equipo";
+        if (k === "name") f.querySelector("h2").textContent = v || "Nueva conexión";
       }
     });
   });
@@ -192,7 +199,7 @@ function validate() {
   for (let i = 0; i < hosts.length; i++) {
     const h = hosts[i];
     const miss = !h.name?.trim() ? "nombre" : !h.address?.trim() ? "dirección" : !h.user?.trim() ? "usuario" : null;
-    if (miss) { sel = i; render(); status(`Falta el ${miss} en este equipo.`); return false; }
+    if (miss) { sel = i; render(); status(`Falta el ${miss} en esta conexión.`); return false; }
   }
   return true;
 }
@@ -200,7 +207,7 @@ function validate() {
 function status(t) { $("status").textContent = t; }
 
 $("add").onclick = () => {
-  hosts.push({ name: "Nuevo equipo", address: "", user: "" });
+  hosts.push({ name: "Nueva conexión", address: "", user: "" });
   sel = hosts.length - 1; setDirty(true); render();
   document.querySelector('[data-k="name"]').select();
 };

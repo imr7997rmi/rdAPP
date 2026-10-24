@@ -101,7 +101,7 @@ pub fn config_path() -> PathBuf {
 }
 
 const HEADER: &str = "# rdAPP — lista de equipos (se sincroniza por iCloud Drive)\n\
-# Se puede editar desde la app: menú «Equipos…».\n\
+# Se puede editar desde la app: menú «Conexiones…».\n\
 # Las contraseñas NO van aquí: se piden la primera vez y se guardan en el Llavero.\n\n";
 
 const EXAMPLE: &str = r#"[[host]]

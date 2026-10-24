@@ -49,14 +49,14 @@ fn build_menu(hosts: &[Host], error: Option<&str>) -> Menu {
     }
 
     if hosts.is_empty() {
-        let _ = menu.append(&MenuItem::new("(sin equipos)", false, None));
+        let _ = menu.append(&MenuItem::new("(sin conexiones)", false, None));
     }
     for (i, h) in hosts.iter().enumerate() {
         let _ = menu.append(&MenuItem::with_id(format!("connect:{i}"), &h.name, true, None));
     }
 
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("editor", "Equipos…", true, None));
+    let _ = menu.append(&MenuItem::with_id("editor", "Conexiones…", true, None));
 
     let forget = Submenu::new("Olvidar contraseña", !hosts.is_empty());
     for (i, h) in hosts.iter().enumerate() {
@@ -70,14 +70,14 @@ fn build_menu(hosts: &[Host], error: Option<&str>) -> Menu {
     menu
 }
 
-/// Menú del Dock: equipos + editor.
+/// Menú del Dock: conexiones + editor.
 fn build_dock_menu(hosts: &[Host]) -> Menu {
     let menu = Menu::new();
     for (i, h) in hosts.iter().enumerate() {
         let _ = menu.append(&MenuItem::with_id(format!("connect:{i}"), &h.name, true, None));
     }
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("editor", "Equipos…", true, None));
+    let _ = menu.append(&MenuItem::with_id("editor", "Conexiones…", true, None));
     menu
 }
 
@@ -96,7 +96,7 @@ fn build_app_menu() -> Menu {
     let _ = app.append_items(&[
         &about,
         &PredefinedMenuItem::separator(),
-        &MenuItem::with_id("editor", "Equipos…", true, None),
+        &MenuItem::with_id("editor", "Conexiones…", true, None),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
         &PredefinedMenuItem::quit(Some("Salir de rdAPP")),

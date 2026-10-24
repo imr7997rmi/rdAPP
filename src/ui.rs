@@ -51,7 +51,7 @@ pub fn open_path(path: &Path) {
     let _ = Command::new("open").arg(path).spawn();
 }
 
-const EDIT_ITEM: &str = "✎ Equipos…";
+const EDIT_ITEM: &str = "✎ Conexiones…";
 
 /// Lista de equipos al abrir la app o pulsar el Dock. No bloquea el bucle de eventos.
 pub fn picker(hosts: Vec<crate::config::Host>, proxy: tao::event_loop::EventLoopProxy<crate::UserEvent>) {

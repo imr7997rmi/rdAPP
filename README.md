@@ -6,7 +6,7 @@ Cliente RDP ultraligero para macOS, en Rust.
 
 - Al abrir la app (o pulsar su icono del Dock) aparece la lista de equipos: elegir y conectar.
 - Clic derecho en el icono del Dock o icono en la barra de menú: misma lista.
-- **Editor visual** de equipos (menú «Equipos…»): añadir, duplicar, ordenar y configurar sin tocar el archivo.
+- **Editor visual** de conexiones (menú «Conexiones…»): añadir, duplicar, ordenar y configurar sin tocar el archivo.
 - La versión se ve en la barra de menú, en «Acerca de rdAPP» y en el editor.
 - Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
 - Lista en **iCloud Drive** (`iCloud Drive/rdAPP/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
@@ -53,7 +53,7 @@ cargo run --release
 
 ## hosts.toml
 
-Se edita desde **Equipos…** o a mano (menú → **Abrir hosts.toml**).
+Se edita desde **Conexiones…** o a mano (menú → **Abrir hosts.toml**).
 
 ```toml
 [[host]]

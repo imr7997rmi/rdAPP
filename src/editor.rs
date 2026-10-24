@@ -1,4 +1,4 @@
-//! Editor visual de equipos: ventana tao + WebView del sistema (wry).
+//! Editor visual de conexiones: ventana tao + WebView del sistema (wry).
 
 use tao::dpi::LogicalSize;
 use tao::event_loop::{EventLoopProxy, EventLoopWindowTarget};
@@ -22,8 +22,8 @@ impl Editor {
         hosts: &[Host],
     ) -> Option<Self> {
         let window = WindowBuilder::new()
-            .with_title(format!("Equipos — rdAPP {VERSION}"))
-            .with_inner_size(LogicalSize::new(820.0, 580.0))
+            .with_title(format!("Conexiones — rdAPP {VERSION}"))
+            .with_inner_size(LogicalSize::new(820.0, 660.0))
             .with_min_inner_size(LogicalSize::new(640.0, 440.0))
             .build(target)
             .ok()?;
