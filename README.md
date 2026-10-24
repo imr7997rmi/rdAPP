@@ -6,6 +6,7 @@ Cliente RDP ultraligero para macOS, en Rust.
 
 - Al abrir la app (o pulsar su icono del Dock) aparece la lista de equipos: elegir y conectar.
 - Clic derecho en el icono del Dock o icono en la barra de menú: misma lista.
+- **Usuarios reutilizables**: un mismo usuario/contraseña para varias conexiones (pestaña «Usuarios» del editor).
 - **Editor visual** de conexiones (menú «Conexiones…»): añadir, duplicar, ordenar y configurar sin tocar el archivo.
 - La versión se ve en la barra de menú, en «Acerca de rdAPP» y en el editor.
 - Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
@@ -56,6 +57,16 @@ cargo run --release
 Se edita desde **Conexiones…** o a mano (menú → **Abrir hosts.toml**).
 
 ```toml
+[[login]]                     # usuario reutilizable (opcional)
+name = "Admin oficina"
+user = "administrador"
+# domain = "EMPRESA"
+
+[[host]]
+name = "Servidor"
+address = "srv.example.com"
+login = "Admin oficina"       # usa el usuario de arriba y comparte su contraseña
+
 [[host]]
 name = "Oficina"
 address = "192.168.1.50"      # o "host:3389"
@@ -75,7 +86,8 @@ user = "usuario"
 
 - Se piden la primera vez y se guardan en el Llavero si la conexión funciona.
 - Menú → **Olvidar contraseña** para borrarla.
-- La cuenta en el Llavero es `usuario@dirección`.
+- La cuenta en el Llavero es `usuario@dirección`, o `login:<nombre>` si la conexión usa un usuario guardado
+  (todas sus conexiones comparten esa contraseña; si renombras el usuario, se pedirá de nuevo).
 
 ## Logs
 

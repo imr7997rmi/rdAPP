@@ -5,7 +5,7 @@ use tao::event_loop::{EventLoopProxy, EventLoopWindowTarget};
 use tao::window::{Window, WindowBuilder, WindowId};
 use wry::{WebView, WebViewBuilder};
 
-use crate::config::Host;
+use crate::config::File;
 use crate::{UserEvent, VERSION};
 
 const HTML: &str = include_str!("editor.html");
@@ -19,7 +19,7 @@ impl Editor {
     pub fn open(
         target: &EventLoopWindowTarget<UserEvent>,
         proxy: EventLoopProxy<UserEvent>,
-        hosts: &[Host],
+        file: &File,
     ) -> Option<Self> {
         let window = WindowBuilder::new()
             .with_title(format!("Conexiones — rdAPP {VERSION}"))
@@ -28,7 +28,7 @@ impl Editor {
             .build(target)
             .ok()?;
 
-        let init = serde_json::json!({ "version": VERSION, "hosts": hosts });
+        let init = serde_json::json!({ "version": VERSION, "hosts": file.hosts, "logins": file.logins });
         let webview = WebViewBuilder::new()
             .with_html(HTML)
             .with_initialization_script(format!("window.RDAPP_INIT = {init};"))

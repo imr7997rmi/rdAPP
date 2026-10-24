@@ -122,6 +122,9 @@ fn build_app_menu() -> Menu {
 }
 
 struct State {
+    /// Archivo tal cual (para el editor)
+    file: config::File,
+    /// Conexiones con usuario resuelto (para menús y conexión)
     hosts: Vec<Host>,
     tray: Option<TrayIcon>,
     dock_menu: Option<Menu>,
@@ -131,11 +134,18 @@ struct State {
 
 impl State {
     fn reload(&mut self, path: &Path) {
-        let (list, err) = match config::load(path) {
-            Ok(l) => (l, None),
-            Err(e) => (Vec::new(), Some(e)),
+        let (file, mut err) = match config::load(path) {
+            Ok(f) => (f, None),
+            Err(e) => (config::File::default(), Some(e)),
         };
-        self.hosts = list;
+        self.hosts = Vec::new();
+        for h in &file.hosts {
+            match h.resolve(&file.logins) {
+                Ok(r) => self.hosts.push(r),
+                Err(e) => err = err.or(Some(e)),
+            }
+        }
+        self.file = file;
         if let Some(t) = &self.tray {
             t.set_menu(Some(Box::new(build_menu(&self.hosts, err.as_deref()))));
         }
@@ -188,7 +198,7 @@ fn main() {
     }
 
     let ipc_proxy = event_loop.create_proxy();
-    let mut st = State { hosts: Vec::new(), tray: None, dock_menu: None, app_menu: None, editor: None };
+    let mut st = State { file: config::File::default(), hosts: Vec::new(), tray: None, dock_menu: None, app_menu: None, editor: None };
 
     event_loop.run(move |event, target, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -196,7 +206,7 @@ fn main() {
 
         let open_editor = |st: &mut State| match &st.editor {
             Some(e) => e.focus(),
-            None => st.editor = Editor::open(target, ipc_proxy.clone(), &st.hosts),
+            None => st.editor = Editor::open(target, ipc_proxy.clone(), &st.file),
         };
 
         match event {
@@ -236,12 +246,13 @@ fn main() {
             Event::UserEvent(UserEvent::OpenEditor) => open_editor(&mut st),
             Event::UserEvent(UserEvent::Ipc(msg)) => {
                 let Ok(v) = serde_json::from_str::<serde_json::Value>(&msg) else { return };
+                let logins: Vec<config::Login> = serde_json::from_value(v["logins"].clone()).unwrap_or_default();
                 let host = || serde_json::from_value::<Host>(v["host"].clone()).ok();
                 match v["cmd"].as_str() {
                     Some("save") => {
                         let res = serde_json::from_value::<Vec<Host>>(v["hosts"].clone())
                             .map_err(|e| e.to_string())
-                            .and_then(|hosts| config::save(&cfg_path, &hosts));
+                            .and_then(|hosts| config::save(&cfg_path, &config::File { logins: logins.clone(), hosts }));
                         if res.is_ok() {
                             st.reload(&cfg_path);
                         }
@@ -251,7 +262,14 @@ fn main() {
                     }
                     Some("connect") => {
                         if let Some(h) = host() {
-                            launch::connect(h);
+                            match h.resolve(&logins) {
+                                Ok(h) => launch::connect(h),
+                                Err(msg) => {
+                                    if let Some(e) = &st.editor {
+                                        e.notice(&msg);
+                                    }
+                                }
+                            }
                         }
                     }
                     Some("forget") => {
@@ -259,6 +277,14 @@ fn main() {
                             keychain::delete(&h.keychain_account());
                             if let Some(e) = &st.editor {
                                 e.notice(&format!("Contraseña de «{}» eliminada del Llavero.", h.name));
+                            }
+                        }
+                    }
+                    Some("forget_login") => {
+                        if let Some(name) = v["name"].as_str() {
+                            keychain::delete(&format!("login:{name}"));
+                            if let Some(e) = &st.editor {
+                                e.notice(&format!("Contraseña del usuario «{name}» eliminada del Llavero."));
                             }
                         }
                     }

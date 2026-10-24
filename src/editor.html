@@ -70,10 +70,16 @@ footer .status { flex: 1; color: var(--muted); }
 footer .ver { color: var(--muted); font-size: 11px; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }
 .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+
+.seg { display: flex; margin: 10px 8px 2px; background: var(--field); border-radius: 8px; padding: 2px; }
+.seg button { flex: 1; background: none; padding: 4px 0; border-radius: 6px; color: var(--muted); font-size: 12px; }
+.seg button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.used { color: var(--muted); font-size: 12px; line-height: 1.6; padding-left: 130px; }
 </style>
 </head>
 <body>
 <aside>
+  <div class="seg"><button id="tab-h" class="on">Conexiones</button><button id="tab-l">Usuarios</button></div>
   <div id="list"></div>
   <div class="tools">
     <button id="add" title="Añadir">＋</button>
@@ -92,56 +98,95 @@ footer .ver { color: var(--muted); font-size: 11px; }
   <button id="save" class="primary">Guardar</button>
 </footer>
 <script>
-const init = window.RDAPP_INIT || { hosts: [], version: "?" };
-let hosts = JSON.parse(JSON.stringify(init.hosts));
-let sel = hosts.length ? 0 : -1;
+const init = window.RDAPP_INIT || { hosts: [], logins: [], version: "?" };
+const copy = (x) => JSON.parse(JSON.stringify(x));
+let hosts = copy(init.hosts || []);
+let logins = copy(init.logins || []);
+let mode = "h";                       // "h" conexiones, "l" usuarios
+let selH = hosts.length ? 0 : -1, selL = logins.length ? 0 : -1;
 let dirty = false;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const send = (msg) => window.ipc.postMessage(JSON.stringify(msg));
+const items = () => (mode === "h" ? hosts : logins);
+const getSel = () => (mode === "h" ? selH : selL);
+const setSel = (i) => { if (mode === "h") selH = i; else selL = i; };
+const loginOf = (name) => logins.find((l) => l.name === name);
+const usedBy = (name) => hosts.filter((h) => h.login === name);
 
 $("ver").textContent = "rdAPP " + init.version;
 
 function setDirty(v) {
-  dirty = v;
-  $("save").disabled = !v;
-  $("revert").disabled = !v;
+  dirty = v; $("save").disabled = !v; $("revert").disabled = !v;
   $("status").textContent = v ? "Cambios sin guardar" : "";
+}
+function status(t) { $("status").textContent = t; }
+
+function subtitle(h) {
+  if (mode === "l") return (h.domain ? h.domain + "\\" : "") + h.user;
+  const l = h.login ? loginOf(h.login) : null;
+  const u = l ? l.user : h.user;
+  return (u ? u + "@" : "") + (h.address || "");
 }
 
 function renderList() {
-  $("list").innerHTML = hosts.map((h, i) =>
+  $("tab-h").classList.toggle("on", mode === "h");
+  $("tab-l").classList.toggle("on", mode === "l");
+  const sel = getSel(), list = items();
+  $("list").innerHTML = list.map((h, i) =>
     `<div class="item ${i === sel ? "sel" : ""}" data-i="${i}">
        <div class="n">${esc(h.name) || "<sin nombre>"}</div>
-       <div class="a">${esc(h.user)}${h.user ? "@" : ""}${esc(h.address)}</div>
+       <div class="a">${esc(subtitle(h))}</div>
      </div>`).join("");
   document.querySelectorAll(".item").forEach((el) =>
-    el.addEventListener("click", () => { sel = +el.dataset.i; render(); }));
+    el.addEventListener("click", () => { setSel(+el.dataset.i); render(); }));
   $("del").disabled = $("dup").disabled = sel < 0;
   $("up").disabled = sel <= 0;
-  $("down").disabled = sel < 0 || sel >= hosts.length - 1;
+  $("down").disabled = sel < 0 || sel >= list.length - 1;
 }
 
 const scales = [["", "Automático"], [100, "100 %"], [125, "125 %"], [150, "150 %"], [175, "175 %"], [200, "200 %"], [250, "250 %"], [300, "300 %"]];
 
-function renderForm() {
-  const f = $("form");
-  if (sel < 0) { f.innerHTML = `<div class="empty">No hay conexiones. Pulsa ＋ para añadir una.</div>`; return; }
-  const h = hosts[sel];
+function bind(f, obj, after) {
+  f.querySelectorAll("[data-k]").forEach((el) => {
+    const ev = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
+    el.addEventListener(ev, () => {
+      const k = el.dataset.k;
+      let v;
+      if (el.type === "checkbox") v = el.checked;
+      else if (k === "width" || k === "height" || k === "scale") v = el.value === "" ? null : parseInt(el.value, 10);
+      else if (k === "args") v = el.value.trim() ? el.value.trim().split(/\s+/) : [];
+      else v = el.value;
+      if ((k === "domain" || k === "login") && v === "") v = null;
+      const prev = obj[k];
+      obj[k] = v;
+      setDirty(true);
+      if (after) after(k, v, prev);
+    });
+  });
+}
+
+function renderHost() {
+  const f = $("form"), h = hosts[selH];
+  if (!h) { f.innerHTML = `<div class="empty">No hay conexiones. Pulsa ＋ para añadir una.</div>`; return; }
+  const l = h.login ? loginOf(h.login) : null;
   f.innerHTML = `
     <h2>${esc(h.name) || "Nueva conexión"}</h2>
     <h3>Conexión</h3>
     <div class="row"><label>Nombre</label><input type="text" data-k="name" value="${esc(h.name)}"></div>
-    <div class="row"><label>Dirección</label><div>
-      <input type="text" data-k="address" value="${esc(h.address)}" placeholder="servidor o IP (opcional :puerto)">
-    </div></div>
-    <div class="row"><label>Usuario</label><input type="text" data-k="user" value="${esc(h.user)}"></div>
-    <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(h.domain)}" placeholder="opcional"></div>
+    <div class="row"><label>Dirección</label><input type="text" data-k="address" value="${esc(h.address)}" placeholder="servidor o IP (opcional :puerto)"></div>
+    <div class="row"><label>Usuario</label><select data-k="login">
+      <option value="" ${!h.login ? "selected" : ""}>Escribir usuario…</option>
+      ${logins.map((x) => `<option value="${esc(x.name)}" ${h.login === x.name ? "selected" : ""}>${esc(x.name)}</option>`).join("")}
+    </select></div>
+    ${h.login ? `<div class="row"><label></label><div class="hint">${l ? esc((l.domain ? l.domain + "\\" : "") + l.user) + " · contraseña compartida" : "Este usuario no existe"}</div></div>` : `
+    <div class="row"><label></label><input type="text" data-k="user" value="${esc(h.user)}" placeholder="usuario"></div>
+    <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(h.domain)}" placeholder="opcional"></div>`}
     <h3>Pantalla</h3>
     <div class="row"><label>Tamaño inicial</label><div class="pair">
-      <input type="number" data-k="width" value="${h.width ?? ""}" placeholder="ancho" min="200" max="8192"> ×
-      <input type="number" data-k="height" value="${h.height ?? ""}" placeholder="alto" min="200" max="8192">
+      <input type="number" data-k="width" value="${h.width ?? ""}" placeholder="ancho"> ×
+      <input type="number" data-k="height" value="${h.height ?? ""}" placeholder="alto">
       <span class="hint">puntos</span></div></div>
     <div class="row"><label>Escala remota</label><select data-k="scale">
       ${scales.map(([v, t]) => `<option value="${v}" ${String(h.scale ?? "") === String(v) ? "selected" : ""}>${t}</option>`).join("")}
@@ -162,67 +207,101 @@ function renderForm() {
       <button id="connect">Conectar</button>
       <button id="forget" class="danger">Olvidar contraseña</button>
     </div>`;
-  f.querySelectorAll("[data-k]").forEach((el) => {
-    const ev = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
-    el.addEventListener(ev, () => {
-      const k = el.dataset.k;
-      let v;
-      if (el.type === "checkbox") v = el.checked;
-      else if (k === "width" || k === "height" || k === "scale") v = el.value === "" ? null : parseInt(el.value, 10);
-      else if (k === "args") v = el.value.trim() ? el.value.trim().split(/\s+/) : [];
-      else v = el.value;
-      if (k === "domain" && v === "") v = null;
-      h[k] = v;
-      setDirty(true);
-      if (k === "name" || k === "address" || k === "user") {
-        renderList();
-        if (k === "name") f.querySelector("h2").textContent = v || "Nueva conexión";
-      }
-    });
+  bind(f, h, (k, v) => {
+    if (k === "login") { renderHost(); renderList(); return; }
+    if (k === "name") f.querySelector("h2").textContent = v || "Nueva conexión";
+    if (k === "name" || k === "address" || k === "user") renderList();
   });
-  $("connect").onclick = () => { if (validate()) send({ cmd: "connect", host: clean(h) }); };
-  $("forget").onclick = () => send({ cmd: "forget", host: clean(h) });
+  $("connect").onclick = () => { if (validate()) send({ cmd: "connect", host: cleanH(h), logins: logins.map(cleanL) }); };
+  $("forget").onclick = () => send({ cmd: "forget", host: cleanH(h) });
 }
 
-function render() { renderList(); renderForm(); }
+function renderLogin() {
+  const f = $("form"), l = logins[selL];
+  if (!l) { f.innerHTML = `<div class="empty">No hay usuarios guardados.<br>Pulsa ＋ para crear uno y asígnalo a varias conexiones.</div>`; return; }
+  const used = usedBy(l.name);
+  f.innerHTML = `
+    <h2>${esc(l.name) || "Nuevo usuario"}</h2>
+    <h3>Usuario</h3>
+    <div class="row"><label>Nombre</label><input type="text" data-k="name" value="${esc(l.name)}" placeholder="p. ej. Admin oficina"></div>
+    <div class="row"><label>Usuario</label><input type="text" data-k="user" value="${esc(l.user)}"></div>
+    <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(l.domain)}" placeholder="opcional"></div>
+    <h3>Usado en</h3>
+    <div class="used">${used.length ? used.map((h) => esc(h.name)).join("<br>") : "Ninguna conexión"}</div>
+    <div class="actions"><button id="forget" class="danger">Olvidar contraseña</button></div>
+    <div class="hint" style="padding-left:130px;margin-top:10px">La contraseña se pide la primera vez y la comparten todas sus conexiones.</div>`;
+  bind(f, l, (k, v, prev) => {
+    if (k === "name") {
+      hosts.forEach((h) => { if (h.login === prev) h.login = v; });
+      f.querySelector("h2").textContent = v || "Nuevo usuario";
+    }
+    renderList();
+  });
+  $("forget").onclick = () => send({ cmd: "forget_login", name: l.name });
+}
 
-function clean(h) {
-  const o = { name: h.name.trim(), address: h.address.trim(), user: h.user.trim() };
-  if (h.domain) o.domain = h.domain.trim();
+function render() { renderList(); if (mode === "h") renderHost(); else renderLogin(); }
+
+function cleanH(h) {
+  const o = { name: h.name.trim(), address: h.address.trim() };
+  if (h.login) o.login = h.login;
+  else { o.user = (h.user || "").trim(); if (h.domain) o.domain = h.domain.trim(); }
   for (const k of ["width", "height", "scale"]) if (Number.isInteger(h[k])) o[k] = h[k];
   for (const k of ["udp", "microphone", "local_cursor", "no_h264"]) if (h[k]) o[k] = true;
   if (h.args && h.args.length) o.args = h.args;
   return o;
 }
+function cleanL(l) {
+  const o = { name: l.name.trim(), user: (l.user || "").trim() };
+  if (l.domain) o.domain = l.domain.trim();
+  return o;
+}
 
+function fail(m, i, msg) { mode = m; setSel(i); render(); status(msg); return false; }
 function validate() {
+  const names = new Set();
+  for (let i = 0; i < logins.length; i++) {
+    const l = logins[i];
+    if (!l.name?.trim()) return fail("l", i, "Falta el nombre de este usuario.");
+    if (names.has(l.name.trim())) return fail("l", i, "Ya hay otro usuario con este nombre.");
+    names.add(l.name.trim());
+    if (!l.user?.trim()) return fail("l", i, "Falta el usuario.");
+  }
   for (let i = 0; i < hosts.length; i++) {
     const h = hosts[i];
-    const miss = !h.name?.trim() ? "nombre" : !h.address?.trim() ? "dirección" : !h.user?.trim() ? "usuario" : null;
-    if (miss) { sel = i; render(); status(`Falta el ${miss} en esta conexión.`); return false; }
+    if (!h.name?.trim()) return fail("h", i, "Falta el nombre en esta conexión.");
+    if (!h.address?.trim()) return fail("h", i, "Falta la dirección en esta conexión.");
+    if (h.login ? !loginOf(h.login) : !h.user?.trim()) return fail("h", i, "Falta el usuario en esta conexión.");
   }
   return true;
 }
 
-function status(t) { $("status").textContent = t; }
-
+$("tab-h").onclick = () => { mode = "h"; render(); };
+$("tab-l").onclick = () => { mode = "l"; render(); };
 $("add").onclick = () => {
-  hosts.push({ name: "Nueva conexión", address: "", user: "" });
-  sel = hosts.length - 1; setDirty(true); render();
+  if (mode === "h") hosts.push({ name: "Nueva conexión", address: "", user: "" });
+  else logins.push({ name: "Nuevo usuario", user: "" });
+  setSel(items().length - 1); setDirty(true); render();
   document.querySelector('[data-k="name"]').select();
 };
 $("dup").onclick = () => {
-  const c = JSON.parse(JSON.stringify(hosts[sel])); c.name += " (copia)";
-  hosts.splice(sel + 1, 0, c); sel++; setDirty(true); render();
+  const list = items(), i = getSel();
+  const c = copy(list[i]); c.name += " (copia)";
+  list.splice(i + 1, 0, c); setSel(i + 1); setDirty(true); render();
 };
 $("del").onclick = () => {
-  hosts.splice(sel, 1); sel = Math.min(sel, hosts.length - 1); setDirty(true); render();
+  const list = items(), i = getSel();
+  if (mode === "l" && usedBy(list[i].name).length) { status("Este usuario está en uso: cámbialo antes en sus conexiones."); return; }
+  list.splice(i, 1); setSel(Math.min(i, list.length - 1)); setDirty(true); render();
 };
-$("up").onclick = () => { [hosts[sel - 1], hosts[sel]] = [hosts[sel], hosts[sel - 1]]; sel--; setDirty(true); render(); };
-$("down").onclick = () => { [hosts[sel + 1], hosts[sel]] = [hosts[sel], hosts[sel + 1]]; sel++; setDirty(true); render(); };
-$("save").onclick = () => { if (validate()) { status("Guardando…"); send({ cmd: "save", hosts: hosts.map(clean) }); } };
+$("up").onclick = () => { const l = items(), i = getSel(); [l[i - 1], l[i]] = [l[i], l[i - 1]]; setSel(i - 1); setDirty(true); render(); };
+$("down").onclick = () => { const l = items(), i = getSel(); [l[i + 1], l[i]] = [l[i], l[i + 1]]; setSel(i + 1); setDirty(true); render(); };
+$("save").onclick = () => {
+  if (validate()) { status("Guardando…"); send({ cmd: "save", hosts: hosts.map(cleanH), logins: logins.map(cleanL) }); }
+};
 $("revert").onclick = () => {
-  hosts = JSON.parse(JSON.stringify(init.hosts)); sel = hosts.length ? Math.min(Math.max(sel, 0), hosts.length - 1) : -1;
+  hosts = copy(init.hosts || []); logins = copy(init.logins || []);
+  selH = Math.min(Math.max(selH, 0), hosts.length - 1); selL = Math.min(Math.max(selL, 0), logins.length - 1);
   setDirty(false); render();
 };
 document.addEventListener("keydown", (e) => {
@@ -230,9 +309,8 @@ document.addEventListener("keydown", (e) => {
   if (e.metaKey && e.key === "w") { e.preventDefault(); send({ cmd: "close" }); }
 });
 
-// Llamadas desde Rust
 window.rdappSaved = (ok, msg) => {
-  if (ok) { init.hosts = JSON.parse(JSON.stringify(hosts.map(clean))); setDirty(false); status("Guardado ✓"); }
+  if (ok) { init.hosts = hosts.map(cleanH); init.logins = logins.map(cleanL); setDirty(false); status("Guardado ✓"); }
   else status("Error al guardar: " + msg);
 };
 window.rdappNotice = (msg) => status(msg);

@@ -11,6 +11,10 @@ pub struct Host {
     pub name: String,
     /// host o host:puerto
     pub address: String,
+    /// Usuario guardado (sección [[login]]); si está, sustituye a user/domain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub login: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub user: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub domain: Option<String>,
@@ -39,9 +43,38 @@ pub struct Host {
     pub args: Vec<String>,
 }
 
+/// Usuario reutilizable entre conexiones (comparte contraseña en el Llavero).
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Login {
+    pub name: String,
+    pub user: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
+}
+
 impl Host {
     pub fn keychain_account(&self) -> String {
-        format!("{}@{}", self.user, self.address)
+        match &self.login {
+            Some(l) => format!("login:{l}"),
+            None => format!("{}@{}", self.user, self.address),
+        }
+    }
+
+    /// Copia con usuario y dominio tomados del login asociado.
+    pub fn resolve(&self, logins: &[Login]) -> Result<Host, String> {
+        let mut h = self.clone();
+        if let Some(name) = &self.login {
+            let l = logins
+                .iter()
+                .find(|l| &l.name == name)
+                .ok_or_else(|| format!("«{}» usa el usuario «{name}», que no existe", self.name))?;
+            h.user = l.user.clone();
+            h.domain = l.domain.clone();
+        }
+        if h.user.is_empty() {
+            return Err(format!("«{}» no tiene usuario", self.name));
+        }
+        Ok(h)
     }
 
     /// Opciones del visor derivadas de los campos.
@@ -76,10 +109,12 @@ impl Host {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-struct File {
+#[derive(Default, Deserialize, Serialize)]
+pub struct File {
+    #[serde(default, rename = "login", skip_serializing_if = "Vec::is_empty")]
+    pub logins: Vec<Login>,
     #[serde(default, rename = "host")]
-    hosts: Vec<Host>,
+    pub hosts: Vec<Host>,
 }
 
 fn home() -> PathBuf {
@@ -104,10 +139,16 @@ const HEADER: &str = "# rdAPP — lista de equipos (se sincroniza por iCloud Dri
 # Se puede editar desde la app: menú «Conexiones…».\n\
 # Las contraseñas NO van aquí: se piden la primera vez y se guardan en el Llavero.\n\n";
 
-const EXAMPLE: &str = r#"[[host]]
+const EXAMPLE: &str = r#"# Usuarios reutilizables (opcional): varias conexiones pueden compartirlos.
+# [[login]]
+# name = "Admin oficina"
+# user = "administrador"
+# domain = "EMPRESA"
+
+[[host]]
 name = "Ejemplo Windows"
 address = "192.168.1.50"      # o "host:3389"
-user = "usuario"
+user = "usuario"               # o bien: login = "Admin oficina"
 # domain = "EMPRESA"
 # width = 1280                 # tamaño inicial de la ventana, en puntos
 # height = 800
@@ -128,15 +169,14 @@ pub fn ensure_exists(path: &Path) {
     }
 }
 
-pub fn load(path: &Path) -> Result<Vec<Host>, String> {
+pub fn load(path: &Path) -> Result<File, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("No se puede leer hosts.toml: {e}"))?;
-    let f: File = toml::from_str(&text).map_err(|e| format!("Error en hosts.toml: {}", e.message()))?;
-    Ok(f.hosts)
+    toml::from_str(&text).map_err(|e| format!("Error en hosts.toml: {}", e.message()))
 }
 
 /// Guarda de forma atómica (archivo temporal + rename).
-pub fn save(path: &Path, hosts: &[Host]) -> Result<(), String> {
-    let body = toml::to_string(&File { hosts: hosts.to_vec() }).map_err(|e| e.to_string())?;
+pub fn save(path: &Path, file: &File) -> Result<(), String> {
+    let body = toml::to_string(file).map_err(|e| e.to_string())?;
     let tmp = path.with_extension("toml.tmp");
     std::fs::write(&tmp, format!("{HEADER}{body}")).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, path).map_err(|e| e.to_string())
