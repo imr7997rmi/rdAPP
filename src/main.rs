@@ -280,6 +280,16 @@ fn main() {
                             }
                         }
                     }
+                    Some("set_password") => {
+                        if let (Some(acc), Some(pw)) = (v["account"].as_str(), v["password"].as_str()) {
+                            if !acc.is_empty() && !pw.is_empty() {
+                                keychain::set(acc, pw);
+                                if let Some(e) = &st.editor {
+                                    e.password_saved(acc);
+                                }
+                            }
+                        }
+                    }
                     Some("forget_login") => {
                         if let Some(name) = v["name"].as_str() {
                             keychain::delete(&format!("login:{name}"));

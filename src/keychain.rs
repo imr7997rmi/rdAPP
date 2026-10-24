@@ -15,3 +15,7 @@ pub fn set(account: &str, password: &str) {
 pub fn delete(account: &str) {
     let _ = delete_generic_password(SERVICE, account);
 }
+
+pub fn has(account: &str) -> bool {
+    get_generic_password(SERVICE, account).is_ok()
+}

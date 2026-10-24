@@ -123,8 +123,8 @@ fn explain(log: &str) -> Option<String> {
         "El servidor exige TLS."
     } else if log.contains("FailureCode(3)") {
         "El servidor no tiene certificado TLS."
-    } else if log.to_lowercase().contains("logon failure") || log.contains("SEC_E_LOGON_DENIED") {
-        "Usuario o contraseña incorrectos."
+    } else if log.contains("0xc000006d") || log.to_lowercase().contains("logon failure") || log.contains("SEC_E_LOGON_DENIED") {
+        "Usuario o contraseña incorrectos.\nRevisa el usuario en Conexiones… o pulsa «Olvidar contraseña» para volver a escribirla."
     } else if log.contains("Connection refused") || log.contains("timed out") || log.contains("TimedOut") {
         "No se puede conectar con el equipo (apagado, IP o puerto incorrectos, o fuera de la red)."
     } else {

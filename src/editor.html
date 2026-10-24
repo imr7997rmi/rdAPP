@@ -38,7 +38,7 @@ h3 { margin: 22px 0 10px; font-size: 11px; font-weight: 500; color: var(--muted)
 .row label { color: var(--muted); }
 .pair { display: flex; gap: 8px; align-items: center; color: var(--muted); }
 .pair input { width: 90px; }
-input[type=text], input[type=number], select {
+input[type=text], input[type=number], input[type=password], select {
   font: inherit; color: var(--text); background: var(--field);
   border: 0; border-radius: 7px; padding: 6px 9px; width: 100%;
   -webkit-appearance: none; appearance: none;
@@ -105,6 +105,23 @@ let logins = copy(init.logins || []);
 let mode = "h";                       // "h" conexiones, "l" usuarios
 let selH = hosts.length ? 0 : -1, selL = logins.length ? 0 : -1;
 let dirty = false;
+const pw = new Set(Object.keys(init.pw || {}));
+const account = (h) => (h.login ? "login:" + h.login : (h.user || "") + "@" + (h.address || ""));
+function pwRow(acc) {
+  return `<div class="row"><label>Contraseña</label><div class="pair" style="gap:6px">
+      <input type="password" id="pw" style="width:auto;flex:1" placeholder="${pw.has(acc) ? "•••••••• guardada en el Llavero" : "sin guardar — se pedirá al conectar"}" autocomplete="off">
+      <button id="pwsave">Guardar</button></div></div>`;
+}
+function bindPw(acc, forgetMsg) {
+  const save = () => {
+    const v = $("pw").value;
+    if (!v) return;
+    send({ cmd: "set_password", account: acc(), password: v });
+    $("pw").value = "";
+  };
+  $("pwsave").onclick = save;
+  $("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+}
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -182,7 +199,8 @@ function renderHost() {
     </select></div>
     ${h.login ? `<div class="row"><label></label><div class="hint">${l ? esc((l.domain ? l.domain + "\\" : "") + l.user) + " · contraseña compartida" : "Este usuario no existe"}</div></div>` : `
     <div class="row"><label></label><input type="text" data-k="user" value="${esc(h.user)}" placeholder="usuario"></div>
-    <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(h.domain)}" placeholder="opcional"></div>`}
+    <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(h.domain)}" placeholder="opcional"></div>
+    ${pwRow(account(h))}`}
     <h3>Pantalla</h3>
     <div class="row"><label>Tamaño inicial</label><div class="pair">
       <input type="number" data-k="width" value="${h.width ?? ""}" placeholder="ancho"> ×
@@ -212,8 +230,9 @@ function renderHost() {
     if (k === "name") f.querySelector("h2").textContent = v || "Nueva conexión";
     if (k === "name" || k === "address" || k === "user") renderList();
   });
+  if (!h.login) bindPw(() => account(h));
   $("connect").onclick = () => { if (validate()) send({ cmd: "connect", host: cleanH(h), logins: logins.map(cleanL) }); };
-  $("forget").onclick = () => send({ cmd: "forget", host: cleanH(h) });
+  $("forget").onclick = () => { send({ cmd: "forget", host: cleanH(h) }); pw.delete(account(h)); renderHost(); };
 }
 
 function renderLogin() {
@@ -226,10 +245,11 @@ function renderLogin() {
     <div class="row"><label>Nombre</label><input type="text" data-k="name" value="${esc(l.name)}" placeholder="p. ej. Admin oficina"></div>
     <div class="row"><label>Usuario</label><input type="text" data-k="user" value="${esc(l.user)}"></div>
     <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(l.domain)}" placeholder="opcional"></div>
+    ${pwRow("login:" + l.name)}
     <h3>Usado en</h3>
     <div class="used">${used.length ? used.map((h) => esc(h.name)).join("<br>") : "Ninguna conexión"}</div>
     <div class="actions"><button id="forget" class="danger">Olvidar contraseña</button></div>
-    <div class="hint" style="padding-left:130px;margin-top:10px">La contraseña se pide la primera vez y la comparten todas sus conexiones.</div>`;
+    <div class="hint" style="padding-left:130px;margin-top:10px">La contraseña se guarda solo en el Llavero de este Mac (no en iCloud) y la comparten todas sus conexiones.</div>`;
   bind(f, l, (k, v, prev) => {
     if (k === "name") {
       hosts.forEach((h) => { if (h.login === prev) h.login = v; });
@@ -237,7 +257,8 @@ function renderLogin() {
     }
     renderList();
   });
-  $("forget").onclick = () => send({ cmd: "forget_login", name: l.name });
+  bindPw(() => "login:" + l.name);
+  $("forget").onclick = () => { send({ cmd: "forget_login", name: l.name }); pw.delete("login:" + l.name); renderLogin(); };
 }
 
 function render() { renderList(); if (mode === "h") renderHost(); else renderLogin(); }
@@ -314,6 +335,10 @@ window.rdappSaved = (ok, msg) => {
   else status("Error al guardar: " + msg);
 };
 window.rdappNotice = (msg) => status(msg);
+window.rdappPwSaved = (acc) => {
+  pw.add(acc); status("Contraseña guardada en el Llavero ✓");
+  if (mode === "h") renderHost(); else renderLogin();
+};
 
 setDirty(false);
 render();

@@ -28,7 +28,19 @@ impl Editor {
             .build(target)
             .ok()?;
 
-        let init = serde_json::json!({ "version": VERSION, "hosts": file.hosts, "logins": file.logins });
+        // Qué cuentas tienen contraseña en el Llavero (solo booleanos, nunca la contraseña).
+        let mut pw = serde_json::Map::new();
+        let accounts = file
+            .logins
+            .iter()
+            .map(|l| format!("login:{}", l.name))
+            .chain(file.hosts.iter().filter(|h| h.login.is_none()).map(|h| h.keychain_account()));
+        for acc in accounts {
+            if crate::keychain::has(&acc) {
+                pw.insert(acc, serde_json::Value::Bool(true));
+            }
+        }
+        let init = serde_json::json!({ "version": VERSION, "hosts": file.hosts, "logins": file.logins, "pw": pw });
         let webview = WebViewBuilder::new()
             .with_html(HTML)
             .with_initialization_script(format!("window.RDAPP_INIT = {init};"))
@@ -57,6 +69,12 @@ impl Editor {
             Err(e) => format!("rdappSaved(false, {})", serde_json::Value::String(e)),
         };
         let _ = self.webview.evaluate_script(&js);
+    }
+
+    pub fn password_saved(&self, account: &str) {
+        let _ = self
+            .webview
+            .evaluate_script(&format!("rdappPwSaved({})", serde_json::Value::String(account.to_string())));
     }
 
     pub fn notice(&self, msg: &str) {
