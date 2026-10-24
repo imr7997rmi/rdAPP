@@ -23,7 +23,7 @@ impl Editor {
     ) -> Option<Self> {
         let window = WindowBuilder::new()
             .with_title(format!("Conexiones — rdAPP {VERSION}"))
-            .with_inner_size(LogicalSize::new(820.0, 660.0))
+            .with_inner_size(LogicalSize::new(860.0, 800.0))
             .with_min_inner_size(LogicalSize::new(640.0, 440.0))
             .build(target)
             .ok()?;
