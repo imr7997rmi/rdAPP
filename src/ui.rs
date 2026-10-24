@@ -51,10 +51,10 @@ pub fn open_path(path: &Path) {
     let _ = Command::new("open").arg(path).spawn();
 }
 
-const EDIT_ITEM: &str = "✎ Editar lista…";
+const EDIT_ITEM: &str = "✎ Equipos…";
 
 /// Lista de equipos al abrir la app o pulsar el Dock. No bloquea el bucle de eventos.
-pub fn picker(hosts: Vec<crate::config::Host>, cfg: std::path::PathBuf) {
+pub fn picker(hosts: Vec<crate::config::Host>, proxy: tao::event_loop::EventLoopProxy<crate::UserEvent>) {
     std::thread::spawn(move || {
         let mut items: Vec<String> = hosts.iter().map(|h| h.name.clone()).collect();
         items.push(EDIT_ITEM.to_string());
@@ -62,9 +62,10 @@ pub fn picker(hosts: Vec<crate::config::Host>, cfg: std::path::PathBuf) {
         let default = items.first().map(|s| format!("\"{}\"", esc(s))).unwrap_or_default();
         let script = format!(
             "activate\n\
-             set r to choose from list {{{list}}} with title \"rdAPP\" with prompt \"Conectar a:\" default items {{{default}}} OK button name \"Conectar\" cancel button name \"Cerrar\"\n\
+             set r to choose from list {{{list}}} with title \"rdAPP {ver}\" with prompt \"Conectar a:\" default items {{{default}}} OK button name \"Conectar\" cancel button name \"Cerrar\"\n\
              if r is false then return \"\"\n\
-             return item 1 of r"
+             return item 1 of r",
+            ver = crate::VERSION
         );
         let Ok(out) = Command::new("osascript").arg("-e").arg(script).output() else { return };
         let choice = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -72,7 +73,7 @@ pub fn picker(hosts: Vec<crate::config::Host>, cfg: std::path::PathBuf) {
             return;
         }
         if choice == EDIT_ITEM {
-            open_text(&cfg);
+            let _ = proxy.send_event(crate::UserEvent::OpenEditor);
         } else if let Some(h) = hosts.into_iter().find(|h| h.name == choice) {
             crate::launch::connect(h);
         }

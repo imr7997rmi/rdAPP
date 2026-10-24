@@ -77,19 +77,7 @@ fn run(host: Host) {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    if let Some(d) = &host.domain {
-        cmd.arg("--domain").arg(d);
-    }
-    if let Some(w) = host.width {
-        cmd.arg("--desktop-width").arg(w.to_string());
-    }
-    if let Some(h) = host.height {
-        cmd.arg("--desktop-height").arg(h.to_string());
-    }
-    if let Some(s) = host.scale {
-        cmd.arg("--scale-desktop").arg(s.to_string());
-    }
-    cmd.args(&host.args);
+    cmd.args(host.viewer_args());
 
     let started = Instant::now();
     let status = match cmd.spawn().and_then(|mut c| c.wait()) {

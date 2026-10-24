@@ -45,7 +45,8 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
-cat > "$APP/Contents/Info.plist" <<'EOF'
+VERSION="$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)"
+cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -53,8 +54,8 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
   <key>CFBundleName</key><string>rdAPP</string>
   <key>CFBundleDisplayName</key><string>rdAPP</string>
   <key>CFBundleIdentifier</key><string>io.github.rdapp</string>
-  <key>CFBundleVersion</key><string>0.1.0</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleExecutable</key><string>rdapp</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
@@ -70,7 +71,7 @@ codesign --force --deep -s - "$APP"
 mkdir -p "$ROOT/dist"
 rm -rf "$ROOT/dist/rdAPP.app"
 ditto --norsrc "$APP" "$ROOT/dist/rdAPP.app"
-echo "OK: $ROOT/dist/rdAPP.app"
+echo "OK: $ROOT/dist/rdAPP.app (v$VERSION)"
 
 if [ "$1" = "--install" ]; then
   mkdir -p "$HOME/Applications"

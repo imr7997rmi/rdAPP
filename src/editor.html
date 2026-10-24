@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --bg: #f5f5f7; --panel: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #d2d2d7;
+  --accent: #3b6ff2; --accent-text: #fff; --sel: #e8eefe; --danger: #d93025; --field: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e20; --panel: #2a2a2d; --text: #f5f5f7; --muted: #98989d; --line: #3a3a3d;
+    --accent: #5b86f5; --sel: #2f3a57; --danger: #ff6b5e; --field: #1e1e20;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 13px -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  background: var(--bg); color: var(--text);
+  display: grid; grid-template-columns: 240px 1fr; grid-template-rows: 1fr auto;
+  -webkit-user-select: none; user-select: none;
+}
+aside { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+#list { flex: 1; overflow: auto; padding: 6px; }
+.item { padding: 7px 10px; border-radius: 6px; cursor: default; }
+.item .n { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .a { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item.sel { background: var(--accent); color: var(--accent-text); }
+.item.sel .a { color: var(--accent-text); opacity: .8; }
+.tools { display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--line); }
+.tools button { min-width: 28px; padding: 3px 8px; }
+main { padding: 18px 22px; overflow: auto; }
+h2 { margin: 0 0 14px; font-size: 15px; font-weight: 600; }
+h3 { margin: 18px 0 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.row { display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 6px 10px; margin-bottom: 8px; }
+.row label { text-align: right; color: var(--muted); }
+.pair { display: flex; gap: 8px; align-items: center; }
+.pair input { width: 90px; }
+input[type=text], input[type=number], select {
+  font: inherit; color: var(--text); background: var(--field);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 100%;
+  -webkit-user-select: text; user-select: text;
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding-left: 140px; }
+.checks label { display: flex; gap: 6px; align-items: flex-start; }
+.checks small { display: block; color: var(--muted); }
+button {
+  font: inherit; color: var(--text); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 12px;
+}
+button:active { opacity: .7; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+button.danger { color: var(--danger); }
+button:disabled { opacity: .4; }
+.actions { display: flex; gap: 8px; padding-left: 140px; margin-top: 14px; }
+footer {
+  grid-column: 1 / 3; display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-top: 1px solid var(--line); background: var(--panel);
+}
+footer .status { flex: 1; color: var(--muted); }
+footer .ver { color: var(--muted); font-size: 11px; }
+.empty { color: var(--muted); padding: 40px; text-align: center; }
+.hint { color: var(--muted); font-size: 11px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<aside>
+  <div id="list"></div>
+  <div class="tools">
+    <button id="add" title="Añadir">＋</button>
+    <button id="del" title="Borrar">－</button>
+    <button id="dup" title="Duplicar">⧉</button>
+    <span style="flex:1"></span>
+    <button id="up" title="Subir">↑</button>
+    <button id="down" title="Bajar">↓</button>
+  </div>
+</aside>
+<main id="form"></main>
+<footer>
+  <span class="status" id="status"></span>
+  <span class="ver" id="ver"></span>
+  <button id="revert">Descartar</button>
+  <button id="save" class="primary">Guardar</button>
+</footer>
+<script>
+const init = window.RDAPP_INIT || { hosts: [], version: "?" };
+let hosts = JSON.parse(JSON.stringify(init.hosts));
+let sel = hosts.length ? 0 : -1;
+let dirty = false;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const send = (msg) => window.ipc.postMessage(JSON.stringify(msg));
+
+$("ver").textContent = "rdAPP " + init.version;
+
+function setDirty(v) {
+  dirty = v;
+  $("save").disabled = !v;
+  $("revert").disabled = !v;
+  $("status").textContent = v ? "Cambios sin guardar" : "";
+}
+
+function renderList() {
+  $("list").innerHTML = hosts.map((h, i) =>
+    `<div class="item ${i === sel ? "sel" : ""}" data-i="${i}">
+       <div class="n">${esc(h.name) || "<sin nombre>"}</div>
+       <div class="a">${esc(h.user)}${h.user ? "@" : ""}${esc(h.address)}</div>
+     </div>`).join("");
+  document.querySelectorAll(".item").forEach((el) =>
+    el.addEventListener("click", () => { sel = +el.dataset.i; render(); }));
+  $("del").disabled = $("dup").disabled = sel < 0;
+  $("up").disabled = sel <= 0;
+  $("down").disabled = sel < 0 || sel >= hosts.length - 1;
+}
+
+const scales = [["", "Automático"], [100, "100 %"], [125, "125 %"], [150, "150 %"], [175, "175 %"], [200, "200 %"], [250, "250 %"], [300, "300 %"]];
+
+function renderForm() {
+  const f = $("form");
+  if (sel < 0) { f.innerHTML = `<div class="empty">No hay equipos. Pulsa ＋ para añadir uno.</div>`; return; }
+  const h = hosts[sel];
+  f.innerHTML = `
+    <h2>${esc(h.name) || "Nuevo equipo"}</h2>
+    <h3>Conexión</h3>
+    <div class="row"><label>Nombre</label><input type="text" data-k="name" value="${esc(h.name)}"></div>
+    <div class="row"><label>Dirección</label><div>
+      <input type="text" data-k="address" value="${esc(h.address)}" placeholder="servidor o IP (opcional :puerto)">
+    </div></div>
+    <div class="row"><label>Usuario</label><input type="text" data-k="user" value="${esc(h.user)}"></div>
+    <div class="row"><label>Dominio</label><input type="text" data-k="domain" value="${esc(h.domain)}" placeholder="opcional"></div>
+    <h3>Pantalla</h3>
+    <div class="row"><label>Tamaño inicial</label><div class="pair">
+      <input type="number" data-k="width" value="${h.width ?? ""}" placeholder="ancho" min="200" max="8192"> ×
+      <input type="number" data-k="height" value="${h.height ?? ""}" placeholder="alto" min="200" max="8192">
+      <span class="hint">puntos</span></div></div>
+    <div class="row"><label>Escala remota</label><select data-k="scale">
+      ${scales.map(([v, t]) => `<option value="${v}" ${String(h.scale ?? "") === String(v) ? "selected" : ""}>${t}</option>`).join("")}
+    </select></div>
+    <h3>Opciones</h3>
+    <div class="checks">
+      <label><input type="checkbox" data-k="udp" ${h.udp ? "checked" : ""}><span>UDP<small>Más fluido con mala red</small></span></label>
+      <label><input type="checkbox" data-k="microphone" ${h.microphone ? "checked" : ""}><span>Micrófono<small>Envía tu micrófono al equipo</small></span></label>
+      <label><input type="checkbox" data-k="local_cursor" ${h.local_cursor ? "checked" : ""}><span>Cursor local<small>Algo más rápido</small></span></label>
+      <label><input type="checkbox" data-k="no_h264" ${h.no_h264 ? "checked" : ""}><span>Sin H.264<small>Modo gráfico antiguo</small></span></label>
+    </div>
+    <h3>Avanzado</h3>
+    <div class="row"><label>Argumentos extra</label><div>
+      <input type="text" data-k="args" value="${esc((h.args || []).join(" "))}" placeholder="--audio-latency 200">
+      <div class="hint">Opciones de ironrdp-viewer separadas por espacios</div>
+    </div></div>
+    <div class="actions">
+      <button id="connect">Conectar</button>
+      <button id="forget" class="danger">Olvidar contraseña</button>
+    </div>`;
+  f.querySelectorAll("[data-k]").forEach((el) => {
+    const ev = el.type === "checkbox" || el.tagName === "SELECT" ? "change" : "input";
+    el.addEventListener(ev, () => {
+      const k = el.dataset.k;
+      let v;
+      if (el.type === "checkbox") v = el.checked;
+      else if (k === "width" || k === "height" || k === "scale") v = el.value === "" ? null : parseInt(el.value, 10);
+      else if (k === "args") v = el.value.trim() ? el.value.trim().split(/\s+/) : [];
+      else v = el.value;
+      if (k === "domain" && v === "") v = null;
+      h[k] = v;
+      setDirty(true);
+      if (k === "name" || k === "address" || k === "user") {
+        renderList();
+        if (k === "name") f.querySelector("h2").textContent = v || "Nuevo equipo";
+      }
+    });
+  });
+  $("connect").onclick = () => { if (validate()) send({ cmd: "connect", host: clean(h) }); };
+  $("forget").onclick = () => send({ cmd: "forget", host: clean(h) });
+}
+
+function render() { renderList(); renderForm(); }
+
+function clean(h) {
+  const o = { name: h.name.trim(), address: h.address.trim(), user: h.user.trim() };
+  if (h.domain) o.domain = h.domain.trim();
+  for (const k of ["width", "height", "scale"]) if (Number.isInteger(h[k])) o[k] = h[k];
+  for (const k of ["udp", "microphone", "local_cursor", "no_h264"]) if (h[k]) o[k] = true;
+  if (h.args && h.args.length) o.args = h.args;
+  return o;
+}
+
+function validate() {
+  for (let i = 0; i < hosts.length; i++) {
+    const h = hosts[i];
+    const miss = !h.name?.trim() ? "nombre" : !h.address?.trim() ? "dirección" : !h.user?.trim() ? "usuario" : null;
+    if (miss) { sel = i; render(); status(`Falta el ${miss} en este equipo.`); return false; }
+  }
+  return true;
+}
+
+function status(t) { $("status").textContent = t; }
+
+$("add").onclick = () => {
+  hosts.push({ name: "Nuevo equipo", address: "", user: "" });
+  sel = hosts.length - 1; setDirty(true); render();
+  document.querySelector('[data-k="name"]').select();
+};
+$("dup").onclick = () => {
+  const c = JSON.parse(JSON.stringify(hosts[sel])); c.name += " (copia)";
+  hosts.splice(sel + 1, 0, c); sel++; setDirty(true); render();
+};
+$("del").onclick = () => {
+  hosts.splice(sel, 1); sel = Math.min(sel, hosts.length - 1); setDirty(true); render();
+};
+$("up").onclick = () => { [hosts[sel - 1], hosts[sel]] = [hosts[sel], hosts[sel - 1]]; sel--; setDirty(true); render(); };
+$("down").onclick = () => { [hosts[sel + 1], hosts[sel]] = [hosts[sel], hosts[sel + 1]]; sel++; setDirty(true); render(); };
+$("save").onclick = () => { if (validate()) { status("Guardando…"); send({ cmd: "save", hosts: hosts.map(clean) }); } };
+$("revert").onclick = () => {
+  hosts = JSON.parse(JSON.stringify(init.hosts)); sel = hosts.length ? Math.min(Math.max(sel, 0), hosts.length - 1) : -1;
+  setDirty(false); render();
+};
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey && e.key === "s") { e.preventDefault(); if (dirty) $("save").click(); }
+  if (e.metaKey && e.key === "w") { e.preventDefault(); send({ cmd: "close" }); }
+});
+
+// Llamadas desde Rust
+window.rdappSaved = (ok, msg) => {
+  if (ok) { init.hosts = JSON.parse(JSON.stringify(hosts.map(clean))); setDirty(false); status("Guardado ✓"); }
+  else status("Error al guardar: " + msg);
+};
+window.rdappNotice = (msg) => status(msg);
+
+setDirty(false);
+render();
+</script>
+</body>
+</html>

@@ -5,7 +5,9 @@
 Cliente RDP ultraligero para macOS, en Rust.
 
 - Al abrir la app (o pulsar su icono del Dock) aparece la lista de equipos: elegir y conectar.
-- También icono en la barra de menú con la misma lista.
+- Clic derecho en el icono del Dock o icono en la barra de menú: misma lista.
+- **Editor visual** de equipos (menú «Equipos…»): añadir, duplicar, ordenar y configurar sin tocar el archivo.
+- La versión se ve en la barra de menú, en «Acerca de rdAPP» y en el editor.
 - Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
 - Lista en **iCloud Drive** (`iCloud Drive/rdAPP/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
 - Contraseñas en el **Llavero de macOS** (servicio `rdAPP`), nunca en iCloud ni en el archivo.
@@ -19,6 +21,8 @@ src/config.rs    hosts.toml (ubicación iCloud / fallback ~/.config/rdapp)
 src/keychain.rs  Llavero (security-framework)
 src/launch.rs    lanza ironrdp-viewer con la contraseña por variable de entorno
 src/ui.rs        diálogos nativos vía osascript
+src/editor.rs    editor visual (tao + wry/WKWebView), interfaz en src/editor.html
+src/dock.rs      menú del clic derecho en el Dock
 scripts/bundle.sh  compila todo y genera dist/rdAPP.app
 vendor/IronRDP   IronRDP (lo descarga bundle.sh, versión fijada; no está en el repo)
 patches/         parche propio sobre IronRDP (bundle.sh lo aplica):
@@ -49,19 +53,23 @@ cargo run --release
 
 ## hosts.toml
 
+Se edita desde **Equipos…** o a mano (menú → **Abrir hosts.toml**).
+
 ```toml
 [[host]]
 name = "Oficina"
 address = "192.168.1.50"      # o "host:3389"
 user = "usuario"
 # domain = "EMPRESA"
-# width = 1920
-# height = 1080
-# scale = 100                 # % (100–500)
-# args = ["--no-server-pointer"]   # argumentos extra de ironrdp-viewer
+# width = 1280                # tamaño inicial de la ventana, en puntos
+# height = 800
+# scale = 100                 # escala remota en % (100–500)
+# udp = true                  # transporte UDP
+# microphone = true           # redirigir micrófono
+# local_cursor = true         # cursor local
+# no_h264 = true              # modo gráfico antiguo
+# args = ["--audio-latency", "200"]   # opciones extra de ironrdp-viewer
 ```
-
-Se crea un ejemplo la primera vez. Menú → **Editar lista…** lo abre.
 
 ## Contraseñas
 
@@ -77,6 +85,7 @@ Se crea un ejemplo la primera vez. Menú → **Editar lista…** lo abre.
 
 - `RDAPP_CONFIG` — ruta alternativa de `hosts.toml`.
 - `RDAPP_VIEWER` — ruta alternativa de `ironrdp-viewer`.
+- `RDAPP_OPEN_EDITOR` — abrir el editor al arrancar.
 
 ## Pendiente
 
