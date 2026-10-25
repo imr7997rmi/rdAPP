@@ -12,6 +12,7 @@ Cliente RDP ultraligero para macOS, en Rust.
 - Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
 - Lista en **iCloud Drive** (`iCloud Drive/rdOO/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
 - Contraseñas en el **Llavero de macOS** (servicio `rdOO`), nunca en iCloud ni en el archivo.
+- **Portapapeles de texto** compartido Mac ⇄ Windows, y **Cmd actúa como Ctrl** en el remoto (Cmd+C/V/X/Z/A como en el Mac).
 - Motor RDP: [`ironrdp-viewer`](https://github.com/Devolutions/IronRDP) (IronRDP, MIT/Apache-2.0) con H.264/AVC444 vía OpenH264, NLA/CredSSP, portapapeles y audio.
 
 ## Estructura
@@ -30,6 +31,8 @@ patches/         parche propio sobre IronRDP (bundle.sh lo aplica):
                  - redimensionado dinámico con EGFX sin reconectar
                  - título de ventana y tamaño inicial en puntos (Retina)
                  - log de peticiones de redimensionado
+                 - portapapeles de texto en macOS (NSPasteboard ⇄ CLIPRDR)
+                 - Cmd como Ctrl (RDOO_CMD_AS_CTRL)
 ```
 
 ## Compilar e instalar
@@ -79,6 +82,8 @@ user = "usuario"
 # microphone = true           # redirigir micrófono
 # local_cursor = true         # cursor local
 # no_h264 = true              # modo gráfico antiguo
+# no_clipboard = true         # sin portapapeles compartido
+# cmd_is_windows = true       # Cmd = tecla Windows (por defecto Cmd = Ctrl)
 # args = ["--audio-latency", "200"]   # opciones extra de ironrdp-viewer
 ```
 

@@ -78,6 +78,9 @@ fn run(host: Host) {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     cmd.args(host.viewer_args());
+    if !host.cmd_is_windows {
+        cmd.env("RDOO_CMD_AS_CTRL", "1");
+    }
 
     let started = Instant::now();
     let status = match cmd.spawn().and_then(|mut c| c.wait()) {

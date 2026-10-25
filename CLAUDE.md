@@ -20,6 +20,8 @@ Cliente RDP ligero para macOS. La app (`src/`) es un lanzador/gestor; la conexi�
 
 ## Parche sobre IronRDP
 - Redimensionado con EGFX: se da por completado al llegar ResetGraphics con el nuevo tamaño (antes: timeout + reconexión).
+- Portapapeles de texto macOS: `ironrdp-viewer/src/mac_clipboard.rs` (sondeo de changeCount, texto UTF-16). Sin imágenes ni archivos aún.
+- `RDOO_CMD_AS_CTRL`: Cmd se envía como Ctrl (rdOO lo activa salvo `cmd_is_windows`).
 - `RDOO_TITLE` (título de ventana), `RDOO_LOGICAL_SIZE` (tamaño inicial en puntos), log `rdOO: sending resize request`.
 
 ## Limitaciones conocidas
@@ -27,4 +29,4 @@ Cliente RDP ligero para macOS. La app (`src/`) es un lanzador/gestor; la conexi�
 - Redirección de carpetas/impresoras de ironrdp-viewer solo en Windows.
 
 ## Ideas pendientes
-- Multimonitor, ajuste fino del teclado español, icono propio para la ventana del visor.
+- Portapapeles de imágenes/archivos, multimonitor, ajuste fino del teclado español, icono propio para la ventana del visor.

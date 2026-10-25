@@ -38,6 +38,12 @@ pub struct Host {
     /// Desactivar H.264 (modo gráfico antiguo)
     #[serde(default, skip_serializing_if = "is_false")]
     pub no_h264: bool,
+    /// Desactivar el portapapeles compartido
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub no_clipboard: bool,
+    /// Cmd envía la tecla Windows (por defecto Cmd actúa como Ctrl)
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub cmd_is_windows: bool,
     /// Argumentos extra para ironrdp-viewer
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub args: Vec<String>,
@@ -104,6 +110,9 @@ impl Host {
         if self.no_h264 {
             a.push("--egfx=false".into());
         }
+        if self.no_clipboard {
+            a.extend(["--clipboard-type".into(), "disable".into()]);
+        }
         a.extend(self.args.iter().cloned());
         a
     }
@@ -157,6 +166,8 @@ user = "usuario"               # o bien: login = "Admin oficina"
 # microphone = true
 # local_cursor = true
 # no_h264 = true
+# no_clipboard = true          # sin portapapeles compartido
+# cmd_is_windows = true        # Cmd = tecla Windows (por defecto Cmd = Ctrl)
 # args = ["--audio-latency", "200"]
 "#;
 

@@ -1,3 +1,16 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 1d51a31..17af37d 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3667,6 +3667,8 @@ dependencies = [
+  "ironrdp-rdpdr-native",
+  "ironrdp-rdpfile",
+  "ironrdp-rpc",
++ "objc2 0.6.5",
++ "objc2-foundation 0.3.2",
+  "proc-exit",
+  "raw-window-handle",
+  "semver",
 diff --git a/crates/ironrdp-client/src/rdp.rs b/crates/ironrdp-client/src/rdp.rs
 index 670440a..85c6ee7 100644
 --- a/crates/ironrdp-client/src/rdp.rs
@@ -19,8 +32,23 @@ index 670440a..85c6ee7 100644
                      let width =
                          NonZeroU16::new(image.width()).ok_or_else(|| ironrdp_session::general_err!("width is zero"))?;
                      let height = NonZeroU16::new(image.height())
+diff --git a/crates/ironrdp-viewer/Cargo.toml b/crates/ironrdp-viewer/Cargo.toml
+index 3f28e59..9d66fe1 100644
+--- a/crates/ironrdp-viewer/Cargo.toml
++++ b/crates/ironrdp-viewer/Cargo.toml
+@@ -63,6 +63,10 @@ semver = "1"
+ raw-window-handle = "0.6"
+ url = "2"
+ 
++[target.'cfg(target_os = "macos")'.dependencies]
++objc2 = "0.6"
++objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSString"] }
++
+ [target.'cfg(windows)'.dependencies]
+ ironrdp-cliprdr-native = { path = "../ironrdp-cliprdr-native", version = "0.8" }
+ ironrdp-rdpdr-native = { path = "../ironrdp-rdpdr-native", version = "0.8" }
 diff --git a/crates/ironrdp-viewer/src/app.rs b/crates/ironrdp-viewer/src/app.rs
-index 79f3fd0..2288ce7 100644
+index 79f3fd0..b45400a 100644
 --- a/crates/ironrdp-viewer/src/app.rs
 +++ b/crates/ironrdp-viewer/src/app.rs
 @@ -299,6 +299,7 @@ impl RpcApp {
@@ -52,3 +80,353 @@ index 79f3fd0..2288ce7 100644
          match event_loop.create_window(window_attributes) {
              Ok(window) => {
                  let window = Arc::new(window);
+@@ -967,11 +976,18 @@ fn forward_input_event(
+             // > key being pressed and on some platforms like Wayland/X11 which key resulted
+             // > in modifiers change is hidden, also, not that it really matters.
+             let state = modifiers.state();
++            // rdOO: con RDOO_CMD_AS_CTRL, Cmd actúa como Ctrl en el remoto (Cmd+C/V/X/Z/A como en el Mac).
++            let cmd_as_ctrl = std::env::var_os("RDOO_CMD_AS_CTRL").is_some();
++            let (control, logo) = if cmd_as_ctrl {
++                (state.control_key() || state.super_key(), false)
++            } else {
++                (state.control_key(), state.super_key())
++            };
+             let operations = [
+                 (state.shift_key(), SHIFT_LEFT),
+-                (state.control_key(), CONTROL_LEFT),
++                (control, CONTROL_LEFT),
+                 (state.alt_key(), ALT_LEFT),
+-                (state.super_key(), LOGO_LEFT),
++                (logo, LOGO_LEFT),
+             ]
+             .map(|(pressed, scancode)| {
+                 if pressed {
+diff --git a/crates/ironrdp-viewer/src/lib.rs b/crates/ironrdp-viewer/src/lib.rs
+index c992a16..023dfdb 100644
+--- a/crates/ironrdp-viewer/src/lib.rs
++++ b/crates/ironrdp-viewer/src/lib.rs
+@@ -12,6 +12,8 @@
+ pub mod app;
+ pub mod cli;
+ pub mod clipboard;
++#[cfg(target_os = "macos")]
++pub mod mac_clipboard;
+ #[cfg(windows)]
+ pub mod drives;
+ mod keymap;
+diff --git a/crates/ironrdp-viewer/src/mac_clipboard.rs b/crates/ironrdp-viewer/src/mac_clipboard.rs
+new file mode 100644
+index 0000000..8aab087
+--- /dev/null
++++ b/crates/ironrdp-viewer/src/mac_clipboard.rs
+@@ -0,0 +1,278 @@
++//! rdOO: portapapeles de texto entre macOS (NSPasteboard) y el servidor RDP (CLIPRDR).
++//!
++//! - Mac → remoto: se vigila `changeCount` del portapapeles y se anuncia `CF_UNICODETEXT`;
++//!   el texto se lee cuando el servidor lo pide (al pegar allí).
++//! - Remoto → Mac: cuando el servidor anuncia texto, se pide en el acto y se escribe en el
++//!   portapapeles del Mac, listo para Cmd+V.
++
++use core::time::Duration;
++use std::sync::mpsc::{self, RecvTimeoutError, Sender};
++use std::thread::JoinHandle;
++
++use ironrdp::cliprdr::backend::{ClipboardMessage, ClipboardMessageProxy, CliprdrBackend, CliprdrBackendFactory};
++use ironrdp::cliprdr::pdu::{
++    ClipboardFormat, ClipboardFormatId, ClipboardGeneralCapabilityFlags, FileContentsRequest, FileContentsResponse,
++    FormatDataRequest, FormatDataResponse, LockDataId,
++};
++use ironrdp::core::{IntoOwned as _, impl_as_any};
++use objc2::rc::{Retained, autoreleasepool};
++use objc2::runtime::AnyObject;
++use objc2::{class, msg_send};
++use objc2_foundation::NSString;
++use tracing::{debug, warn};
++
++const POLL: Duration = Duration::from_millis(300);
++const MAX_TEXT_BYTES: usize = 32 * 1024 * 1024;
++
++#[derive(Debug)]
++enum Cmd {
++    Ready,
++    RemoteCopy(bool),
++    RemoteData(Option<Vec<u8>>),
++    RenderLocal(ClipboardFormatId),
++    Reset,
++    Shutdown,
++}
++
++// --- NSPasteboard -----------------------------------------------------------------------
++
++fn pasteboard() -> Option<Retained<AnyObject>> {
++    // SAFETY: +[NSPasteboard generalPasteboard] devuelve el portapapeles general.
++    unsafe { msg_send![class!(NSPasteboard), generalPasteboard] }
++}
++
++fn text_type() -> Retained<NSString> {
++    // NSPasteboardTypeString
++    NSString::from_str("public.utf8-plain-text")
++}
++
++fn change_count() -> isize {
++    autoreleasepool(|_| match pasteboard() {
++        // SAFETY: -[NSPasteboard changeCount] -> NSInteger.
++        Some(pb) => unsafe { msg_send![&*pb, changeCount] },
++        None => -1,
++    })
++}
++
++fn read_text() -> Option<String> {
++    autoreleasepool(|_| {
++        let pb = pasteboard()?;
++        let ty = text_type();
++        // SAFETY: -[NSPasteboard stringForType:] -> NSString * (puede ser nil).
++        let s: Option<Retained<NSString>> = unsafe { msg_send![&*pb, stringForType: &*ty] };
++        s.map(|s| s.to_string())
++    })
++}
++
++fn write_text(text: &str) -> bool {
++    autoreleasepool(|_| {
++        let Some(pb) = pasteboard() else { return false };
++        let ty = text_type();
++        let value = NSString::from_str(text);
++        // SAFETY: -[NSPasteboard clearContents] -> NSInteger; -[setString:forType:] -> BOOL.
++        unsafe {
++            let _: isize = msg_send![&*pb, clearContents];
++            msg_send![&*pb, setString: &*value, forType: &*ty]
++        }
++    })
++}
++
++// --- Hilo del portapapeles ----------------------------------------------------------------
++
++struct Worker<P> {
++    proxy: P,
++    ready: bool,
++    last_count: isize,
++    pending_paste: bool,
++}
++
++impl<P: ClipboardMessageProxy> Worker<P> {
++    fn advertise_local(&self) {
++        let formats = if read_text().is_some_and(|t| !t.is_empty()) {
++            vec![ClipboardFormat::new(ClipboardFormatId::CF_UNICODETEXT)]
++        } else {
++            Vec::new()
++        };
++        self.proxy.send_clipboard_message(ClipboardMessage::SendInitiateCopy(formats));
++    }
++
++    fn handle(&mut self, cmd: Cmd) {
++        match cmd {
++            Cmd::Ready => {
++                self.ready = true;
++                self.last_count = change_count();
++                self.advertise_local();
++            }
++            Cmd::RemoteCopy(has_text) => {
++                if has_text && !self.pending_paste {
++                    self.pending_paste = true;
++                    self.proxy
++                        .send_clipboard_message(ClipboardMessage::SendInitiatePaste(ClipboardFormatId::CF_UNICODETEXT));
++                }
++            }
++            Cmd::RemoteData(data) => {
++                if !self.pending_paste {
++                    return;
++                }
++                self.pending_paste = false;
++                let Some(data) = data else { return };
++                match FormatDataResponse::new_data(data.as_slice()).to_unicode_string() {
++                    Ok(text) => {
++                        if write_text(&text) {
++                            // No reenviar al servidor lo que acaba de llegar de él.
++                            self.last_count = change_count();
++                        }
++                    }
++                    Err(error) => warn!(%error, "Could not decode the remote clipboard text"),
++                }
++            }
++            Cmd::RenderLocal(format) => {
++                let response = match (format, read_text()) {
++                    (ClipboardFormatId::CF_UNICODETEXT, Some(text)) if text.len() <= MAX_TEXT_BYTES => {
++                        let data = FormatDataResponse::new_unicode_string(&text).into_data().into_owned();
++                        FormatDataResponse::new_data(data).into_owned()
++                    }
++                    _ => FormatDataResponse::new_error(),
++                };
++                self.proxy.send_clipboard_message(ClipboardMessage::SendFormatData(response));
++            }
++            Cmd::Reset => {
++                self.ready = false;
++                self.pending_paste = false;
++            }
++            Cmd::Shutdown => {}
++        }
++    }
++
++    fn poll(&mut self) {
++        if !self.ready {
++            return;
++        }
++        let count = change_count();
++        if count != self.last_count {
++            self.last_count = count;
++            self.advertise_local();
++        }
++    }
++}
++
++// --- API pública ------------------------------------------------------------------------
++
++pub struct MacClipboard {
++    commands: Sender<Cmd>,
++    thread: Option<JoinHandle<()>>,
++}
++
++impl core::fmt::Debug for MacClipboard {
++    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
++        f.debug_struct("MacClipboard").finish_non_exhaustive()
++    }
++}
++
++impl MacClipboard {
++    pub fn new(proxy: impl ClipboardMessageProxy + 'static) -> std::io::Result<Self> {
++        let (commands, receiver) = mpsc::channel::<Cmd>();
++        let thread = std::thread::Builder::new().name("cliprdr-macos".to_owned()).spawn(move || {
++            let mut worker = Worker { proxy, ready: false, last_count: change_count(), pending_paste: false };
++            loop {
++                match receiver.recv_timeout(POLL) {
++                    Ok(Cmd::Shutdown) | Err(RecvTimeoutError::Disconnected) => break,
++                    Ok(cmd) => worker.handle(cmd),
++                    Err(RecvTimeoutError::Timeout) => {}
++                }
++                worker.poll();
++            }
++            debug!("macOS clipboard thread stopped");
++        })?;
++        Ok(Self { commands, thread: Some(thread) })
++    }
++
++    pub fn backend_factory(&self) -> Box<dyn CliprdrBackendFactory + Send> {
++        Box::new(Factory { commands: self.commands.clone() })
++    }
++}
++
++impl Drop for MacClipboard {
++    fn drop(&mut self) {
++        let _ = self.commands.send(Cmd::Shutdown);
++        if let Some(t) = self.thread.take() {
++            let _ = t.join();
++        }
++    }
++}
++
++struct Factory {
++    commands: Sender<Cmd>,
++}
++
++impl CliprdrBackendFactory for Factory {
++    fn build_cliprdr_backend(&self) -> Box<dyn CliprdrBackend> {
++        let _ = self.commands.send(Cmd::Reset);
++        Box::new(MacCliprdrBackend { commands: self.commands.clone() })
++    }
++}
++
++#[derive(Debug)]
++pub struct MacCliprdrBackend {
++    commands: Sender<Cmd>,
++}
++
++impl_as_any!(MacCliprdrBackend);
++
++impl MacCliprdrBackend {
++    fn send(&self, cmd: Cmd) {
++        if self.commands.send(cmd).is_err() {
++            warn!("The clipboard thread is gone; dropping a CLIPRDR event");
++        }
++    }
++}
++
++impl CliprdrBackend for MacCliprdrBackend {
++    fn temporary_directory(&self) -> &str {
++        ".cliprdr"
++    }
++
++    fn client_capabilities(&self) -> ClipboardGeneralCapabilityFlags {
++        ClipboardGeneralCapabilityFlags::empty()
++    }
++
++    fn on_ready(&mut self) {}
++
++    fn on_request_format_list(&mut self) {
++        self.send(Cmd::Ready);
++    }
++
++    fn on_process_negotiated_capabilities(&mut self, capabilities: ClipboardGeneralCapabilityFlags) {
++        debug!(?capabilities, "CLIPRDR capabilities negotiated");
++    }
++
++    fn on_remote_copy(&mut self, available_formats: &[ClipboardFormat]) {
++        let has_text = available_formats.iter().any(|f| f.id() == ClipboardFormatId::CF_UNICODETEXT);
++        self.send(Cmd::RemoteCopy(has_text));
++    }
++
++    fn on_format_data_request(&mut self, request: FormatDataRequest) {
++        self.send(Cmd::RenderLocal(request.format));
++    }
++
++    fn on_format_data_response(&mut self, response: FormatDataResponse<'_>) {
++        let data = (!response.is_error()).then(|| response.data().to_vec());
++        self.send(Cmd::RemoteData(data));
++    }
++
++    fn on_file_contents_request(&mut self, request: FileContentsRequest) {
++        debug!(?request, "File transfer is not supported");
++    }
++
++    fn on_file_contents_response(&mut self, response: FileContentsResponse<'_>) {
++        debug!(?response, "File transfer is not supported");
++    }
++
++    fn on_lock(&mut self, data_id: LockDataId) {
++        debug!(?data_id);
++    }
++
++    fn on_unlock(&mut self, data_id: LockDataId) {
++        debug!(?data_id);
++    }
++}
+diff --git a/crates/ironrdp-viewer/src/main.rs b/crates/ironrdp-viewer/src/main.rs
+index 960735e..2d9c8e0 100644
+--- a/crates/ironrdp-viewer/src/main.rs
++++ b/crates/ironrdp-viewer/src/main.rs
+@@ -71,6 +71,8 @@ fn main() -> anyhow::Result<()> {
+     let server = config.destination().to_string();
+     #[cfg(windows)]
+     let drives = ironrdp_viewer::drives::ViewerDrives::from_rdpdr_config(&config.channels().rdpdr, named_drives);
++    #[cfg(target_os = "macos")]
++    let clipboard_enabled_mac = config.channels().clipboard == ironrdp::client::config::ClipboardType::Enable;
+     let client = RdpClient::new(config, output_event_sender);
+     #[cfg(windows)]
+     let (client, _drive_watcher) =
+@@ -78,6 +80,18 @@ fn main() -> anyhow::Result<()> {
+     // Kept alive, on this thread, until the event loop returns.
+     #[cfg(windows)]
+     let (client, _clipboard) = attach_windows_clipboard(client, enable_clipboard)?;
++    // rdOO: portapapeles de texto en macOS.
++    #[cfg(target_os = "macos")]
++    let (client, _clipboard) = if clipboard_enabled_mac {
++        let clipboard = ironrdp_viewer::mac_clipboard::MacClipboard::new(
++            ironrdp_viewer::clipboard::ClientClipboardMessageProxy::new(client.input_sender()),
++        )
++        .context("unable to initialize the macOS clipboard")?;
++        let client = client.with_cliprdr_backend_factory(clipboard.backend_factory());
++        (client, Some(clipboard))
++    } else {
++        (client, None)
++    };
+     let input_event_sender = client.input_sender();
+ 
+     let mut app = App::new(&event_loop, &input_event_sender, initial_window_size, remote_app)
