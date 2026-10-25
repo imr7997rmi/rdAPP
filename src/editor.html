@@ -83,7 +83,7 @@ footer .ver { color: var(--muted); font-size: 11px; }
   <div id="list"></div>
   <div class="tools">
     <button id="add" title="Añadir">＋</button>
-    <button id="del" title="Borrar">－</button>
+    <button id="del" title="Eliminar">－</button>
     <button id="dup" title="Duplicar">⧉</button>
     <span style="flex:1"></span>
     <button id="up" title="Subir">↑</button>
@@ -226,6 +226,8 @@ function renderHost() {
     <div class="actions">
       <button id="connect">Conectar</button>
       <button id="forget" class="danger">Olvidar contraseña</button>
+      <span style="flex:1"></span>
+      <button id="remove" class="danger">Eliminar conexión</button>
     </div>`;
   bind(f, h, (k, v) => {
     if (k === "login") { renderHost(); renderList(); return; }
@@ -233,6 +235,7 @@ function renderHost() {
     if (k === "name" || k === "address" || k === "user") renderList();
   });
   if (!h.login) bindPw(() => account(h));
+  $("remove").onclick = () => $("del").click();
   $("connect").onclick = () => { if (validate()) send({ cmd: "connect", host: cleanH(h), logins: logins.map(cleanL) }); };
   $("forget").onclick = () => { send({ cmd: "forget", host: cleanH(h) }); pw.delete(account(h)); renderHost(); };
 }
@@ -250,7 +253,8 @@ function renderLogin() {
     ${pwRow("login:" + l.name)}
     <h3>Usado en</h3>
     <div class="used">${used.length ? used.map((h) => esc(h.name)).join("<br>") : "Ninguna conexión"}</div>
-    <div class="actions"><button id="forget" class="danger">Olvidar contraseña</button></div>
+    <div class="actions"><button id="forget" class="danger">Olvidar contraseña</button>
+      <span style="flex:1"></span><button id="remove" class="danger">Eliminar usuario</button></div>
     <div class="hint" style="padding-left:130px;margin-top:10px">La contraseña se guarda solo en el Llavero de este Mac (no en iCloud) y la comparten todas sus conexiones.</div>`;
   bind(f, l, (k, v, prev) => {
     if (k === "name") {
@@ -260,6 +264,7 @@ function renderLogin() {
     renderList();
   });
   bindPw(() => "login:" + l.name);
+  $("remove").onclick = () => $("del").click();
   $("forget").onclick = () => { send({ cmd: "forget_login", name: l.name }); pw.delete("login:" + l.name); renderLogin(); };
 }
 
@@ -315,7 +320,9 @@ $("dup").onclick = () => {
 $("del").onclick = () => {
   const list = items(), i = getSel();
   if (mode === "l" && usedBy(list[i].name).length) { status("Este usuario está en uso: cámbialo antes en sus conexiones."); return; }
+  const gone = list[i].name;
   list.splice(i, 1); setSel(Math.min(i, list.length - 1)); setDirty(true); render();
+  status(`«${gone}» eliminado — Guardar para confirmar o Descartar para deshacer`);
 };
 $("up").onclick = () => { const l = items(), i = getSel(); [l[i - 1], l[i]] = [l[i], l[i - 1]]; setSel(i - 1); setDirty(true); render(); };
 $("down").onclick = () => { const l = items(), i = getSel(); [l[i + 1], l[i]] = [l[i], l[i + 1]]; setSel(i + 1); setDirty(true); render(); };
@@ -332,6 +339,7 @@ document.addEventListener("keydown", (e) => {
   if (e.metaKey && e.key === "w") { e.preventDefault(); send({ cmd: "close" }); }
 });
 
+document.addEventListener("contextmenu", (e) => { if (!e.target.closest("input, select")) e.preventDefault(); });
 window.rdooSaved = (ok, msg) => {
   if (ok) { init.hosts = hosts.map(cleanH); init.logins = logins.map(cleanL); setDirty(false); status("Guardado ✓"); }
   else status("Error al guardar: " + msg);

@@ -84,6 +84,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === "Enter") { e.preventDefault(); connect(); }
   else if (e.key === "Escape") { $("q").value = ""; render(); }
 });
+document.addEventListener("contextmenu", (e) => { if (!e.target.closest("input")) e.preventDefault(); });
 window.rdooSetHosts = (list) => { hosts = list; render(); };
 render();
 $("q").focus();
