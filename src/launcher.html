@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+:root {
+  --bg: #ffffff; --text: #1d1d1f; --muted: #86868b; --line: #e5e5e7;
+  --field: #f2f2f4; --accent: #2f6fef; --accent-text: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1c1c1e; --text: #f2f2f2; --muted: #8e8e93; --line: #2c2c2e; --field: #2a2a2c; --accent: #4f86f7; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg); color: var(--text);
+  display: flex; flex-direction: column;
+  -webkit-user-select: none; user-select: none;
+}
+header { padding: 10px 10px 6px; }
+#q {
+  width: 100%; font: inherit; color: var(--text); background: var(--field);
+  border: 0; border-radius: 7px; padding: 7px 10px;
+  -webkit-user-select: text; user-select: text;
+}
+#q::placeholder { color: var(--muted); }
+#q:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+#list { flex: 1; overflow: auto; padding: 4px 6px; }
+.item { padding: 8px 10px; border-radius: 7px; display: flex; flex-direction: column; }
+.item .n { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .a { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item.sel { background: var(--accent); color: var(--accent-text); }
+.item.sel .a { color: var(--accent-text); opacity: .75; }
+.empty { color: var(--muted); text-align: center; padding: 40px 20px; line-height: 1.6; }
+footer { display: flex; gap: 8px; align-items: center; padding: 8px 10px; border-top: 1px solid var(--line); }
+footer .hint { flex: 1; color: var(--muted); font-size: 11px; }
+button { font: inherit; color: var(--text); background: var(--field); border: 0; border-radius: 7px; padding: 5px 12px; }
+button.primary { background: var(--accent); color: var(--accent-text); }
+button:disabled { opacity: .35; }
+button:active { opacity: .7; }
+</style>
+</head>
+<body>
+<header><input id="q" type="text" placeholder="Buscar conexión" autocomplete="off" spellcheck="false"></header>
+<div id="list"></div>
+<footer>
+  <span class="hint">↩ conectar · ⌘, ajustes</span>
+  <button id="settings">Ajustes</button>
+  <button id="go" class="primary">Conectar</button>
+</footer>
+<script>
+let hosts = (window.RDOO_HOSTS || []);
+let shown = [], sel = 0;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const send = (m) => window.ipc.postMessage(JSON.stringify(m));
+
+function render() {
+  const q = $("q").value.trim().toLowerCase();
+  shown = hosts.map((h, i) => ({ ...h, i })).filter((h) =>
+    !q || (h.name + " " + h.address + " " + h.user).toLowerCase().includes(q));
+  sel = Math.min(sel, Math.max(shown.length - 1, 0));
+  $("list").innerHTML = shown.length
+    ? shown.map((h, k) => `<div class="item ${k === sel ? "sel" : ""}" data-k="${k}">
+        <span class="n">${esc(h.name)}</span><span class="a">${esc(h.user)}@${esc(h.address)}</span></div>`).join("")
+    : `<div class="empty">${hosts.length ? "Sin resultados" : "No hay conexiones.<br>Añádelas en Ajustes (⌘,)."}</div>`;
+  document.querySelectorAll(".item").forEach((el) => {
+    el.onclick = () => { sel = +el.dataset.k; render(); };
+    el.ondblclick = () => { sel = +el.dataset.k; connect(); };
+  });
+  $("go").disabled = !shown.length;
+  const cur = document.querySelector(".item.sel");
+  if (cur) cur.scrollIntoView({ block: "nearest" });
+}
+function connect() { if (shown[sel]) send({ cmd: "launch", index: shown[sel].i }); }
+
+$("q").addEventListener("input", () => { sel = 0; render(); });
+$("go").onclick = connect;
+$("settings").onclick = () => send({ cmd: "settings" });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(sel + 1, shown.length - 1); render(); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(sel - 1, 0); render(); }
+  else if (e.key === "Enter") { e.preventDefault(); connect(); }
+  else if (e.key === "Escape") { $("q").value = ""; render(); }
+});
+window.rdooSetHosts = (list) => { hosts = list; render(); };
+render();
+$("q").focus();
+</script>
+</body>
+</html>

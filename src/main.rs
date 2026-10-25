@@ -9,6 +9,7 @@ mod editor;
 mod icon;
 mod keychain;
 mod launch;
+mod launcher;
 mod ui;
 
 use std::path::Path;
@@ -23,6 +24,8 @@ use tray_icon::{TrayIcon, TrayIconBuilder};
 
 use config::Host;
 use editor::Editor;
+use launcher::Launcher;
+use muda::accelerator::{Accelerator, Code, Modifiers};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -56,7 +59,8 @@ fn build_menu(hosts: &[Host], error: Option<&str>) -> Menu {
     }
 
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("editor", "Conexiones…", true, None));
+    let _ = menu.append(&MenuItem::with_id("launcher", "Conexiones", true, None));
+    let _ = menu.append(&MenuItem::with_id("editor", "Ajustes…", true, None));
 
     let forget = Submenu::new("Olvidar contraseña", !hosts.is_empty());
     for (i, h) in hosts.iter().enumerate() {
@@ -70,14 +74,14 @@ fn build_menu(hosts: &[Host], error: Option<&str>) -> Menu {
     menu
 }
 
-/// Menú del Dock: conexiones + editor.
+/// Menú del Dock: conexiones + ajustes.
 fn build_dock_menu(hosts: &[Host]) -> Menu {
     let menu = Menu::new();
     for (i, h) in hosts.iter().enumerate() {
         let _ = menu.append(&MenuItem::with_id(format!("connect:{i}"), &h.name, true, None));
     }
     let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&MenuItem::with_id("editor", "Conexiones…", true, None));
+    let _ = menu.append(&MenuItem::with_id("editor", "Ajustes…", true, None));
     menu
 }
 
@@ -96,7 +100,12 @@ fn build_app_menu() -> Menu {
     let _ = app.append_items(&[
         &about,
         &PredefinedMenuItem::separator(),
-        &MenuItem::with_id("editor", "Conexiones…", true, None),
+        &MenuItem::with_id(
+            "editor",
+            "Ajustes…",
+            true,
+            Some(Accelerator::new(Modifiers::META, Code::Comma)),
+        ),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
         &PredefinedMenuItem::quit(Some("Salir de rdOO")),
@@ -113,6 +122,13 @@ fn build_app_menu() -> Menu {
     ]);
     let window = Submenu::new("Ventana", true);
     let _ = window.append_items(&[
+        &MenuItem::with_id(
+            "launcher",
+            "Conexiones",
+            true,
+            Some(Accelerator::new(Modifiers::META, Code::Digit0)),
+        ),
+        &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::minimize(None),
         &PredefinedMenuItem::close_window(Some("Cerrar")),
     ]);
@@ -130,6 +146,7 @@ struct State {
     dock_menu: Option<Menu>,
     app_menu: Option<Menu>,
     editor: Option<Editor>,
+    launcher: Option<Launcher>,
 }
 
 impl State {
@@ -156,6 +173,9 @@ impl State {
             dock::set_menu(dock.ns_menu());
         }
         self.dock_menu = Some(dock);
+        if let Some(l) = &self.launcher {
+            l.set_hosts(&self.hosts);
+        }
     }
 }
 
@@ -198,7 +218,7 @@ fn main() {
     }
 
     let ipc_proxy = event_loop.create_proxy();
-    let mut st = State { file: config::File::default(), hosts: Vec::new(), tray: None, dock_menu: None, app_menu: None, editor: None };
+    let mut st = State { file: config::File::default(), hosts: Vec::new(), tray: None, dock_menu: None, app_menu: None, editor: None, launcher: None };
 
     event_loop.run(move |event, target, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -207,6 +227,10 @@ fn main() {
         let open_editor = |st: &mut State| match &st.editor {
             Some(e) => e.focus(),
             None => st.editor = Editor::open(target, ipc_proxy.clone(), &st.file),
+        };
+        let open_launcher = |st: &mut State| match &st.launcher {
+            Some(l) => l.focus(),
+            None => st.launcher = Launcher::open(target, ipc_proxy.clone(), &st.hosts),
         };
 
         match event {
@@ -228,18 +252,17 @@ fn main() {
                 if std::env::var_os("RDOO_OPEN_EDITOR").is_some() {
                     open_editor(&mut st);
                 } else {
-                    ui::picker(st.hosts.clone(), ipc_proxy.clone());
+                    open_launcher(&mut st);
                 }
             }
             // Clic en el icono del Dock / volver a abrir la app.
-            Event::Reopen { .. } => {
-                if st.editor.is_none() {
-                    ui::picker(st.hosts.clone(), ipc_proxy.clone());
-                }
-            }
+            Event::Reopen { .. } => open_launcher(&mut st),
             Event::WindowEvent { window_id, event: WindowEvent::CloseRequested, .. } => {
                 if st.editor.as_ref().is_some_and(|e| e.id() == window_id) {
                     st.editor = None;
+                }
+                if st.launcher.as_ref().is_some_and(|l| l.id() == window_id) {
+                    st.launcher = None;
                 }
             }
             Event::UserEvent(UserEvent::Reload) => st.reload(&cfg_path),
@@ -249,6 +272,12 @@ fn main() {
                 let logins: Vec<config::Login> = serde_json::from_value(v["logins"].clone()).unwrap_or_default();
                 let host = || serde_json::from_value::<Host>(v["host"].clone()).ok();
                 match v["cmd"].as_str() {
+                    Some("launch") => {
+                        if let Some(h) = v["index"].as_u64().and_then(|i| st.hosts.get(i as usize)) {
+                            launch::connect(h.clone());
+                        }
+                    }
+                    Some("settings") => open_editor(&mut st),
                     Some("save") => {
                         let res = serde_json::from_value::<Vec<Host>>(v["hosts"].clone())
                             .map_err(|e| e.to_string())
@@ -316,6 +345,7 @@ fn main() {
                 } else {
                     match id {
                         "editor" => open_editor(&mut st),
+                        "launcher" => open_launcher(&mut st),
                         "edit" => ui::open_text(&cfg_path),
                         "logs" => ui::open_path(&launch::log_dir()),
                         "quit" => *control_flow = ControlFlow::Exit,

@@ -22,7 +22,7 @@ impl Editor {
         file: &File,
     ) -> Option<Self> {
         let window = WindowBuilder::new()
-            .with_title(format!("Conexiones — rdOO {VERSION}"))
+            .with_title("Ajustes")
             .with_inner_size(LogicalSize::new(860.0, 800.0))
             .with_min_inner_size(LogicalSize::new(640.0, 440.0))
             .build(target)

@@ -4,10 +4,10 @@
 
 Cliente RDP ultraligero para macOS, en Rust.
 
-- Al abrir la app (o pulsar su icono del Dock) aparece la lista de equipos: elegir y conectar.
+- Al abrir la app (o pulsar su icono del Dock) aparece la ventana de conexiones: buscar, elegir y conectar (↩ o doble clic).
 - Clic derecho en el icono del Dock o icono en la barra de menú: misma lista.
 - **Usuarios reutilizables**: un mismo usuario/contraseña para varias conexiones (pestaña «Usuarios» del editor).
-- **Editor visual** de conexiones (menú «Conexiones…»): añadir, duplicar, ordenar y configurar sin tocar el archivo.
+- **Editor visual** de conexiones (menú «Ajustes…» (⌘,)): añadir, duplicar, ordenar y configurar sin tocar el archivo.
 - La versión se ve en la barra de menú, en «Acerca de rdOO» y en el editor.
 - Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
 - Lista en **iCloud Drive** (`iCloud Drive/rdOO/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
@@ -57,7 +57,7 @@ cargo run --release
 
 ## hosts.toml
 
-Se edita desde **Conexiones…** o a mano (menú → **Abrir hosts.toml**).
+Se edita desde **Ajustes…** (⌘,) o a mano (menú → **Abrir hosts.toml**).
 
 ```toml
 [[login]]                     # usuario reutilizable (opcional)

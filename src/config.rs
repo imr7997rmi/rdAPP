@@ -145,7 +145,7 @@ pub fn config_path() -> PathBuf {
 }
 
 const HEADER: &str = "# rdOO — lista de equipos (se sincroniza por iCloud Drive)\n\
-# Se puede editar desde la app: menú «Conexiones…».\n\
+# Se puede editar desde la app: menú «Ajustes…» (⌘,).\n\
 # Las contraseñas NO van aquí: se piden la primera vez y se guardan en el Llavero.\n\n";
 
 const EXAMPLE: &str = r#"# Usuarios reutilizables (opcional): varias conexiones pueden compartirlos.

@@ -51,31 +51,3 @@ pub fn open_path(path: &Path) {
     let _ = Command::new("open").arg(path).spawn();
 }
 
-const EDIT_ITEM: &str = "✎ Conexiones…";
-
-/// Lista de equipos al abrir la app o pulsar el Dock. No bloquea el bucle de eventos.
-pub fn picker(hosts: Vec<crate::config::Host>, proxy: tao::event_loop::EventLoopProxy<crate::UserEvent>) {
-    std::thread::spawn(move || {
-        let mut items: Vec<String> = hosts.iter().map(|h| h.name.clone()).collect();
-        items.push(EDIT_ITEM.to_string());
-        let list = items.iter().map(|s| format!("\"{}\"", esc(s))).collect::<Vec<_>>().join(", ");
-        let default = items.first().map(|s| format!("\"{}\"", esc(s))).unwrap_or_default();
-        let script = format!(
-            "activate\n\
-             set r to choose from list {{{list}}} with title \"rdOO {ver}\" with prompt \"Conectar a:\" default items {{{default}}} OK button name \"Conectar\" cancel button name \"Cerrar\"\n\
-             if r is false then return \"\"\n\
-             return item 1 of r",
-            ver = crate::VERSION
-        );
-        let Ok(out) = Command::new("osascript").arg("-e").arg(script).output() else { return };
-        let choice = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if choice.is_empty() {
-            return;
-        }
-        if choice == EDIT_ITEM {
-            let _ = proxy.send_event(crate::UserEvent::OpenEditor);
-        } else if let Some(h) = hosts.into_iter().find(|h| h.name == choice) {
-            crate::launch::connect(h);
-        }
-    });
-}

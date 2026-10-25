@@ -13,7 +13,8 @@ Cliente RDP ligero para macOS. La app (`src/`) es un lanzador/gestor; la conexi�
 ## Arquitectura
 - `main.rs`: bucle tao, icono de barra de menú (tray-icon/muda), menú de app, menú del Dock, watcher de hosts.toml.
 - `config.rs`: `hosts.toml` (`[[login]]` usuarios reutilizables + `[[host]]` conexiones). Ruta: iCloud Drive `rdOO/hosts.toml`.
-- `editor.rs` + `editor.html`: editor «Conexiones…» (wry/WKWebView). IPC JSON: save, connect, forget, forget_login, set_password, close.
+- `launcher.rs` + `launcher.html`: ventana principal de conexiones (búsqueda, ↩ conecta). IPC: launch, settings.
+- `editor.rs` + `editor.html`: editor «Ajustes…» (⌘,) (wry/WKWebView). IPC JSON: save, connect, forget, forget_login, set_password, close.
 - `keychain.rs`: Llavero, servicio `rdOO`; cuenta `user@address` o `login:<nombre>`.
 - `launch.rs`: lanza el visor (contraseña por `RDP_PASSWORD`), log en `~/Library/Logs/rdOO/`, traduce errores.
 - `dock.rs`: añade `applicationDockMenu:` al delegado de NSApplication.
