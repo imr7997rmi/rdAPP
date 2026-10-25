@@ -10,7 +10,7 @@ fn esc(s: &str) -> String {
 /// Pide la contraseña con un diálogo oculto. None si se cancela.
 pub fn ask_password(host_name: &str, account: &str) -> Option<String> {
     let script = format!(
-        "text returned of (display dialog \"Contraseña para {}\\n{}\" default answer \"\" with hidden answer with title \"rdAPP\" buttons {{\"Cancelar\", \"Conectar\"}} default button \"Conectar\")",
+        "text returned of (display dialog \"Contraseña para {}\\n{}\" default answer \"\" with hidden answer with title \"rdOO\" buttons {{\"Cancelar\", \"Conectar\"}} default button \"Conectar\")",
         esc(host_name),
         esc(account)
     );
@@ -38,7 +38,7 @@ pub fn alert(title: &str, msg: &str, buttons: &[&str]) -> Option<String> {
 }
 
 pub fn notify(msg: &str) {
-    let script = format!("display notification \"{}\" with title \"rdAPP\"", esc(msg));
+    let script = format!("display notification \"{}\" with title \"rdOO\"", esc(msg));
     let _ = Command::new("osascript").arg("-e").arg(script).spawn();
 }
 
@@ -62,7 +62,7 @@ pub fn picker(hosts: Vec<crate::config::Host>, proxy: tao::event_loop::EventLoop
         let default = items.first().map(|s| format!("\"{}\"", esc(s))).unwrap_or_default();
         let script = format!(
             "activate\n\
-             set r to choose from list {{{list}}} with title \"rdAPP {ver}\" with prompt \"Conectar a:\" default items {{{default}}} OK button name \"Conectar\" cancel button name \"Cerrar\"\n\
+             set r to choose from list {{{list}}} with title \"rdOO {ver}\" with prompt \"Conectar a:\" default items {{{default}}} OK button name \"Conectar\" cancel button name \"Cerrar\"\n\
              if r is false then return \"\"\n\
              return item 1 of r",
             ver = crate::VERSION

@@ -6,12 +6,12 @@ use crate::config::Host;
 use crate::{keychain, ui};
 
 pub fn log_dir() -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("Library/Logs/rdAPP")
+    PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("Library/Logs/rdOO")
 }
 
-/// Busca ironrdp-viewer: $RDAPP_VIEWER, junto al ejecutable (bundle .app) o en vendor/ (desarrollo).
+/// Busca ironrdp-viewer: $RDOO_VIEWER, junto al ejecutable (bundle .app) o en vendor/ (desarrollo).
 fn viewer_path() -> Option<PathBuf> {
-    if let Ok(p) = std::env::var("RDAPP_VIEWER") {
+    if let Ok(p) = std::env::var("RDOO_VIEWER") {
         return Some(PathBuf::from(p));
     }
     if let Ok(exe) = std::env::current_exe() {
@@ -43,7 +43,7 @@ pub fn connect(host: Host) {
 
 fn run(host: Host) {
     let Some(viewer) = viewer_path() else {
-        ui::alert("rdAPP", "No se encuentra ironrdp-viewer.", &["OK"]);
+        ui::alert("rdOO", "No se encuentra ironrdp-viewer.", &["OK"]);
         return;
     };
 
@@ -72,8 +72,8 @@ fn run(host: Host) {
         .arg(&log)
         .env("RDP_PASSWORD", &password)
         .env("IRONRDP_LOG", "warn,ironrdp_client=info,ironrdp_viewer=info")
-        .env("RDAPP_TITLE", format!("{} — rdAPP", host.name))
-        .env("RDAPP_LOGICAL_SIZE", "1")
+        .env("RDOO_TITLE", format!("{} — rdOO", host.name))
+        .env("RDOO_LOGICAL_SIZE", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
@@ -83,7 +83,7 @@ fn run(host: Host) {
     let status = match cmd.spawn().and_then(|mut c| c.wait()) {
         Ok(s) => s,
         Err(e) => {
-            ui::alert("rdAPP", &format!("No se pudo lanzar el visor: {e}"), &["OK"]);
+            ui::alert("rdOO", &format!("No se pudo lanzar el visor: {e}"), &["OK"]);
             return;
         }
     };
@@ -107,7 +107,7 @@ fn run(host: Host) {
     let detail = explain(&log_text).unwrap_or_else(|| tail(&log, 6));
     let msg = format!("La conexión con «{}» terminó con error.\n\n{}", host.name, detail);
     let buttons: &[&str] = if from_keychain { &["Olvidar contraseña", "OK"] } else { &["OK"] };
-    if ui::alert("rdAPP", &msg, buttons).as_deref() == Some("Olvidar contraseña") {
+    if ui::alert("rdOO", &msg, buttons).as_deref() == Some("Olvidar contraseña") {
         keychain::delete(&account);
     }
 }

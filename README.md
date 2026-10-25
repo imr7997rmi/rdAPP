@@ -1,6 +1,6 @@
-<p align="center"><img src="assets/icon.png" width="160" alt="rdAPP"></p>
+<p align="center"><img src="assets/icon.png" width="160" alt="rdOO"></p>
 
-# rdAPP
+# rdOO
 
 Cliente RDP ultraligero para macOS, en Rust.
 
@@ -8,23 +8,23 @@ Cliente RDP ultraligero para macOS, en Rust.
 - Clic derecho en el icono del Dock o icono en la barra de menú: misma lista.
 - **Usuarios reutilizables**: un mismo usuario/contraseña para varias conexiones (pestaña «Usuarios» del editor).
 - **Editor visual** de conexiones (menú «Conexiones…»): añadir, duplicar, ordenar y configurar sin tocar el archivo.
-- La versión se ve en la barra de menú, en «Acerca de rdAPP» y en el editor.
+- La versión se ve en la barra de menú, en «Acerca de rdOO» y en el editor.
 - Icono de la app: `assets/icon.png` (el `.icns` se genera en `scripts/bundle.sh`).
-- Lista en **iCloud Drive** (`iCloud Drive/rdAPP/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
-- Contraseñas en el **Llavero de macOS** (servicio `rdAPP`), nunca en iCloud ni en el archivo.
+- Lista en **iCloud Drive** (`iCloud Drive/rdOO/hosts.toml`), sincronizada entre Macs y recargada automáticamente al cambiar.
+- Contraseñas en el **Llavero de macOS** (servicio `rdOO`), nunca en iCloud ni en el archivo.
 - Motor RDP: [`ironrdp-viewer`](https://github.com/Devolutions/IronRDP) (IronRDP, MIT/Apache-2.0) con H.264/AVC444 vía OpenH264, NLA/CredSSP, portapapeles y audio.
 
 ## Estructura
 
 ```
 src/main.rs      barra de menú (tray-icon + muda + tao), vigilancia del archivo (notify)
-src/config.rs    hosts.toml (ubicación iCloud / fallback ~/.config/rdapp)
+src/config.rs    hosts.toml (ubicación iCloud / fallback ~/.config/rdoo)
 src/keychain.rs  Llavero (security-framework)
 src/launch.rs    lanza ironrdp-viewer con la contraseña por variable de entorno
 src/ui.rs        diálogos nativos vía osascript
 src/editor.rs    editor visual (tao + wry/WKWebView), interfaz en src/editor.html
 src/dock.rs      menú del clic derecho en el Dock
-scripts/bundle.sh  compila todo y genera dist/rdAPP.app
+scripts/bundle.sh  compila todo y genera dist/rdOO.app
 vendor/IronRDP   IronRDP (lo descarga bundle.sh, versión fijada; no está en el repo)
 patches/         parche propio sobre IronRDP (bundle.sh lo aplica):
                  - redimensionado dinámico con EGFX sin reconectar
@@ -38,9 +38,9 @@ Requisitos: macOS 11+, Rust (`rustup`), Xcode Command Line Tools y cmake
 (`python3 -m pip install --user cmake` o `brew install cmake`).
 
 ```sh
-git clone <este repo> rdAPP && cd rdAPP
+git clone <este repo> rdOO && cd rdOO
 scripts/bundle.sh --install
-open ~/Applications/rdAPP.app
+open ~/Applications/rdOO.app
 ```
 
 La primera vez `bundle.sh` descarga IronRDP en `vendor/`, aplica `patches/` y compila (unos minutos).
@@ -91,13 +91,13 @@ user = "usuario"
 
 ## Logs
 
-`~/Library/Logs/rdAPP/<equipo>.log` (Menú → **Ver logs**).
+`~/Library/Logs/rdOO/<equipo>.log` (Menú → **Ver logs**).
 
 ## Variables de entorno
 
-- `RDAPP_CONFIG` — ruta alternativa de `hosts.toml`.
-- `RDAPP_VIEWER` — ruta alternativa de `ironrdp-viewer`.
-- `RDAPP_OPEN_EDITOR` — abrir el editor al arrancar.
+- `RDOO_CONFIG` — ruta alternativa de `hosts.toml`.
+- `RDOO_VIEWER` — ruta alternativa de `ironrdp-viewer`.
+- `RDOO_OPEN_EDITOR` — abrir el editor al arrancar.
 
 ## Pendiente
 

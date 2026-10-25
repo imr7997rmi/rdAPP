@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compila rdAPP + ironrdp-viewer y genera rdAPP.app (y opcionalmente lo instala).
+# Compila rdOO + ironrdp-viewer y genera rdOO.app (y opcionalmente lo instala).
 # Uso: scripts/bundle.sh [--install]
 set -e
 . "$HOME/.cargo/env" 2>/dev/null || true
@@ -29,9 +29,9 @@ done
 cargo build --release
 
 # Se construye y firma fuera de Documents (iCloud añade atributos que rompen codesign).
-APP="$(mktemp -d)/rdAPP.app"
+APP="$(mktemp -d)/rdOO.app"
 mkdir -p "$APP/Contents/MacOS"
-cp target/release/rdapp "$APP/Contents/MacOS/rdapp"
+cp target/release/rdoo "$APP/Contents/MacOS/rdoo"
 cp vendor/IronRDP/target/release/ironrdp-viewer "$APP/Contents/MacOS/ironrdp-viewer"
 strip -x "$APP/Contents/MacOS/ironrdp-viewer"
 
@@ -51,12 +51,12 @@ cat > "$APP/Contents/Info.plist" <<EOF
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>rdAPP</string>
-  <key>CFBundleDisplayName</key><string>rdAPP</string>
-  <key>CFBundleIdentifier</key><string>io.github.rdapp</string>
+  <key>CFBundleName</key><string>rdOO</string>
+  <key>CFBundleDisplayName</key><string>rdOO</string>
+  <key>CFBundleIdentifier</key><string>io.github.rdoo</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
-  <key>CFBundleExecutable</key><string>rdapp</string>
+  <key>CFBundleExecutable</key><string>rdoo</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
@@ -69,14 +69,14 @@ xattr -cr "$APP"
 codesign --force --deep -s - "$APP"
 
 mkdir -p "$ROOT/dist"
-rm -rf "$ROOT/dist/rdAPP.app"
-ditto --norsrc "$APP" "$ROOT/dist/rdAPP.app"
-echo "OK: $ROOT/dist/rdAPP.app (v$VERSION)"
+rm -rf "$ROOT/dist/rdOO.app"
+ditto --norsrc "$APP" "$ROOT/dist/rdOO.app"
+echo "OK: $ROOT/dist/rdOO.app (v$VERSION)"
 
 if [ "$1" = "--install" ]; then
   mkdir -p "$HOME/Applications"
-  rm -rf "$HOME/Applications/rdAPP.app"
-  ditto --norsrc "$APP" "$HOME/Applications/rdAPP.app"
-  codesign --verify "$HOME/Applications/rdAPP.app" && echo "Instalado en ~/Applications/rdAPP.app"
+  rm -rf "$HOME/Applications/rdOO.app"
+  ditto --norsrc "$APP" "$HOME/Applications/rdOO.app"
+  codesign --verify "$HOME/Applications/rdOO.app" && echo "Instalado en ~/Applications/rdOO.app"
 fi
 rm -rf "$(dirname "$APP")"

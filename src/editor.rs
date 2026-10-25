@@ -22,7 +22,7 @@ impl Editor {
         file: &File,
     ) -> Option<Self> {
         let window = WindowBuilder::new()
-            .with_title(format!("Conexiones — rdAPP {VERSION}"))
+            .with_title(format!("Conexiones — rdOO {VERSION}"))
             .with_inner_size(LogicalSize::new(860.0, 800.0))
             .with_min_inner_size(LogicalSize::new(640.0, 440.0))
             .build(target)
@@ -43,7 +43,7 @@ impl Editor {
         let init = serde_json::json!({ "version": VERSION, "hosts": file.hosts, "logins": file.logins, "pw": pw });
         let webview = WebViewBuilder::new()
             .with_html(HTML)
-            .with_initialization_script(format!("window.RDAPP_INIT = {init};"))
+            .with_initialization_script(format!("window.RDOO_INIT = {init};"))
             .with_ipc_handler(move |req| {
                 let _ = proxy.send_event(UserEvent::Ipc(req.body().clone()));
             })
@@ -65,8 +65,8 @@ impl Editor {
 
     pub fn saved(&self, result: Result<(), String>) {
         let js = match result {
-            Ok(()) => "rdappSaved(true)".to_string(),
-            Err(e) => format!("rdappSaved(false, {})", serde_json::Value::String(e)),
+            Ok(()) => "rdooSaved(true)".to_string(),
+            Err(e) => format!("rdooSaved(false, {})", serde_json::Value::String(e)),
         };
         let _ = self.webview.evaluate_script(&js);
     }
@@ -74,12 +74,12 @@ impl Editor {
     pub fn password_saved(&self, account: &str) {
         let _ = self
             .webview
-            .evaluate_script(&format!("rdappPwSaved({})", serde_json::Value::String(account.to_string())));
+            .evaluate_script(&format!("rdooPwSaved({})", serde_json::Value::String(account.to_string())));
     }
 
     pub fn notice(&self, msg: &str) {
         let _ = self
             .webview
-            .evaluate_script(&format!("rdappNotice({})", serde_json::Value::String(msg.to_string())));
+            .evaluate_script(&format!("rdooNotice({})", serde_json::Value::String(msg.to_string())));
     }
 }

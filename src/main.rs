@@ -1,4 +1,4 @@
-//! rdAPP — cliente RDP ultraligero para macOS.
+//! rdOO — cliente RDP ultraligero para macOS.
 //! Lista de equipos en iCloud Drive, contraseñas en el Llavero,
 //! conexión mediante ironrdp-viewer (IronRDP).
 
@@ -35,7 +35,7 @@ pub enum UserEvent {
 }
 
 fn version_item() -> MenuItem {
-    MenuItem::new(format!("rdAPP {VERSION}"), false, None)
+    MenuItem::new(format!("rdOO {VERSION}"), false, None)
 }
 
 fn build_menu(hosts: &[Host], error: Option<&str>) -> Menu {
@@ -84,22 +84,22 @@ fn build_dock_menu(hosts: &[Host]) -> Menu {
 /// Barra de menú de la app (necesaria también para copiar/pegar en el editor).
 fn build_app_menu() -> Menu {
     let about = PredefinedMenuItem::about(
-        Some("Acerca de rdAPP"),
+        Some("Acerca de rdOO"),
         Some(AboutMetadata {
-            name: Some("rdAPP".into()),
+            name: Some("rdOO".into()),
             version: Some(VERSION.into()),
             comments: Some("Cliente RDP ligero sobre IronRDP".into()),
             ..Default::default()
         }),
     );
-    let app = Submenu::new("rdAPP", true);
+    let app = Submenu::new("rdOO", true);
     let _ = app.append_items(&[
         &about,
         &PredefinedMenuItem::separator(),
         &MenuItem::with_id("editor", "Conexiones…", true, None),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
-        &PredefinedMenuItem::quit(Some("Salir de rdAPP")),
+        &PredefinedMenuItem::quit(Some("Salir de rdOO")),
     ]);
     let edit = Submenu::new("Edición", true);
     let _ = edit.append_items(&[
@@ -218,14 +218,14 @@ fn main() {
 
                 let t = TrayIconBuilder::new()
                     .with_icon_templated(icon::tray_icon())
-                    .with_tooltip(format!("rdAPP {VERSION}"))
+                    .with_tooltip(format!("rdOO {VERSION}"))
                     .build()
                     .expect("no se pudo crear el icono de la barra de menú");
                 st.tray = Some(t);
                 #[cfg(target_os = "macos")]
                 dock::install();
                 st.reload(&cfg_path);
-                if std::env::var_os("RDAPP_OPEN_EDITOR").is_some() {
+                if std::env::var_os("RDOO_OPEN_EDITOR").is_some() {
                     open_editor(&mut st);
                 } else {
                     ui::picker(st.hosts.clone(), ipc_proxy.clone());

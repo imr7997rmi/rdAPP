@@ -98,7 +98,7 @@ footer .ver { color: var(--muted); font-size: 11px; }
   <button id="save" class="primary">Guardar</button>
 </footer>
 <script>
-const init = window.RDAPP_INIT || { hosts: [], logins: [], version: "?" };
+const init = window.RDOO_INIT || { hosts: [], logins: [], version: "?" };
 const copy = (x) => JSON.parse(JSON.stringify(x));
 let hosts = copy(init.hosts || []);
 let logins = copy(init.logins || []);
@@ -132,7 +132,7 @@ const setSel = (i) => { if (mode === "h") selH = i; else selL = i; };
 const loginOf = (name) => logins.find((l) => l.name === name);
 const usedBy = (name) => hosts.filter((h) => h.login === name);
 
-$("ver").textContent = "rdAPP " + init.version;
+$("ver").textContent = "rdOO " + init.version;
 
 function setDirty(v) {
   dirty = v; $("save").disabled = !v; $("revert").disabled = !v;
@@ -330,12 +330,12 @@ document.addEventListener("keydown", (e) => {
   if (e.metaKey && e.key === "w") { e.preventDefault(); send({ cmd: "close" }); }
 });
 
-window.rdappSaved = (ok, msg) => {
+window.rdooSaved = (ok, msg) => {
   if (ok) { init.hosts = hosts.map(cleanH); init.logins = logins.map(cleanL); setDirty(false); status("Guardado ✓"); }
   else status("Error al guardar: " + msg);
 };
-window.rdappNotice = (msg) => status(msg);
-window.rdappPwSaved = (acc) => {
+window.rdooNotice = (msg) => status(msg);
+window.rdooPwSaved = (acc) => {
   pw.add(acc); status("Contraseña guardada en el Llavero ✓");
   if (mode === "h") renderHost(); else renderLogin();
 };

@@ -1,12 +1,12 @@
 diff --git a/crates/ironrdp-client/src/rdp.rs b/crates/ironrdp-client/src/rdp.rs
-index 670440a..56c78ff 100644
+index 670440a..85c6ee7 100644
 --- a/crates/ironrdp-client/src/rdp.rs
 +++ b/crates/ironrdp-client/src/rdp.rs
 @@ -4800,6 +4800,16 @@ async fn active_session(
                      }
                  }
                  ActiveStageOutput::GraphicsUpdate(region) => {
-+                    // rdAPP: con el pipeline gráfico (EGFX) Windows aplica el cambio de tamaño con
++                    // rdOO: con el pipeline gráfico (EGFX) Windows aplica el cambio de tamaño con
 +                    // ResetGraphics, sin Deactivation-Reactivation. Darlo por completado al ver el
 +                    // nuevo tamaño evita el timeout y la reconexión completa.
 +                    if let Some(in_flight) = resize_queue.in_flight.as_ref()
@@ -20,14 +20,14 @@ index 670440a..56c78ff 100644
                          NonZeroU16::new(image.width()).ok_or_else(|| ironrdp_session::general_err!("width is zero"))?;
                      let height = NonZeroU16::new(image.height())
 diff --git a/crates/ironrdp-viewer/src/app.rs b/crates/ironrdp-viewer/src/app.rs
-index 79f3fd0..a35505e 100644
+index 79f3fd0..2288ce7 100644
 --- a/crates/ironrdp-viewer/src/app.rs
 +++ b/crates/ironrdp-viewer/src/app.rs
 @@ -299,6 +299,7 @@ impl RpcApp {
  
          let width = u16::try_from(size.width).expect("reasonable width");
          let height = u16::try_from(size.height).expect("reasonable height");
-+        info!(width, height, scale_factor, "rdAPP: sending resize request");
++        info!(width, height, scale_factor, "rdOO: sending resize request");
  
          match &self.input_target {
              InputTarget::Direct(input_event_sender) => match input_event_sender.try_send(RdpInputEvent::Resize {
@@ -39,9 +39,9 @@ index 79f3fd0..a35505e 100644
 -            .with_title("IronRDP")
 -            .with_inner_size(self.initial_window_size);
 +        let window_attributes =
-+            WindowAttributes::default().with_title(std::env::var("RDAPP_TITLE").unwrap_or_else(|_| "IronRDP".to_owned()));
-+        // rdAPP: RDAPP_LOGICAL_SIZE=1 interpreta el tamaño inicial en puntos (Retina: x2 píxeles).
-+        let window_attributes = if std::env::var_os("RDAPP_LOGICAL_SIZE").is_some() {
++            WindowAttributes::default().with_title(std::env::var("RDOO_TITLE").unwrap_or_else(|_| "IronRDP".to_owned()));
++        // rdOO: RDOO_LOGICAL_SIZE=1 interpreta el tamaño inicial en puntos (Retina: x2 píxeles).
++        let window_attributes = if std::env::var_os("RDOO_LOGICAL_SIZE").is_some() {
 +            window_attributes.with_inner_size(winit::dpi::LogicalSize::new(
 +                self.initial_window_size.width,
 +                self.initial_window_size.height,

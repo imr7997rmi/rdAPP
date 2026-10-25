@@ -121,21 +121,21 @@ fn home() -> PathBuf {
     PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/".into()))
 }
 
-/// iCloud Drive si existe; si no, ~/.config/rdapp. `RDAPP_CONFIG` lo sobrescribe.
+/// iCloud Drive si existe; si no, ~/.config/rdoo. `RDOO_CONFIG` lo sobrescribe.
 pub fn config_path() -> PathBuf {
-    if let Ok(p) = std::env::var("RDAPP_CONFIG") {
+    if let Ok(p) = std::env::var("RDOO_CONFIG") {
         return PathBuf::from(p);
     }
     let icloud = home().join("Library/Mobile Documents/com~apple~CloudDocs");
     let dir = if icloud.is_dir() {
-        icloud.join("rdAPP")
+        icloud.join("rdOO")
     } else {
-        home().join(".config/rdapp")
+        home().join(".config/rdoo")
     };
     dir.join("hosts.toml")
 }
 
-const HEADER: &str = "# rdAPP — lista de equipos (se sincroniza por iCloud Drive)\n\
+const HEADER: &str = "# rdOO — lista de equipos (se sincroniza por iCloud Drive)\n\
 # Se puede editar desde la app: menú «Conexiones…».\n\
 # Las contraseñas NO van aquí: se piden la primera vez y se guardan en el Llavero.\n\n";
 
@@ -161,6 +161,15 @@ user = "usuario"               # o bien: login = "Admin oficina"
 "#;
 
 pub fn ensure_exists(path: &Path) {
+    // Migración desde el nombre anterior (rdAPP): mover la carpeta si la nueva no existe.
+    if !path.exists() {
+        if let Some(dir) = path.parent() {
+            let old = dir.with_file_name("rdAPP");
+            if old.join("hosts.toml").exists() && !dir.exists() {
+                let _ = std::fs::rename(&old, dir);
+            }
+        }
+    }
     if !path.exists() {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
